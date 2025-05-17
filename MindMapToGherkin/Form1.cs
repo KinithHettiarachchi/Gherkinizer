@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Drawing;
 
+
 namespace MindMapToGherkin
 {
     public partial class Form1 : Form
@@ -100,6 +101,240 @@ namespace MindMapToGherkin
             txtGherkin.ResumeLayout();
         }
 
+        public void MergeGherkinScenariosWithExamples()
+        {
+            string text = txtGherkin.Text;
+            var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).ToList();
+
+            // Extract feature header (first line starting with "Feature:")
+            int featureLineIndex = lines.FindIndex(l => l.TrimStart().StartsWith("Feature:"));
+            string featureHeader = featureLineIndex >= 0 ? lines[featureLineIndex] : "";
+            var scenarioBlocks = new List<(List<string> Tags, string TitleLine, List<string> Steps)>();
+
+            // Parse scenarios and tags
+            // Tags lines start with spaces then @, followed by a Scenario or Scenario Outline line
+            List<string> currentTags = new();
+            string currentTitle = null;
+            List<string> currentSteps = new();
+            bool insideScenario = false;
+
+            for (int i = featureLineIndex + 1; i < lines.Count; i++)
+            {
+                string line = lines[i];
+                string trimmed = line.TrimStart();
+
+                if (trimmed.StartsWith("@"))
+                {
+                    // Tag line, accumulate
+                    if (insideScenario)
+                    {
+                        // New scenario start detected, save previous scenario
+                        if (currentTitle != null)
+                            scenarioBlocks.Add((new List<string>(currentTags), currentTitle, new List<string>(currentSteps)));
+
+                        currentTags.Clear();
+                        currentSteps.Clear();
+                        currentTitle = null;
+                    }
+
+                    currentTags.Add(trimmed);
+                    insideScenario = false; // not yet scenario line
+                }
+                else if (trimmed.StartsWith("Scenario:") || trimmed.StartsWith("Scenario Outline:"))
+                {
+                    // Scenario start line
+                    if (insideScenario)
+                    {
+                        // Save previous scenario
+                        if (currentTitle != null)
+                            scenarioBlocks.Add((new List<string>(currentTags), currentTitle, new List<string>(currentSteps)));
+
+                        currentTags.Clear();
+                        currentSteps.Clear();
+                    }
+                    currentTitle = trimmed;
+                    insideScenario = true;
+                }
+                else
+                {
+                    if (insideScenario)
+                    {
+                        currentSteps.Add(line);
+                    }
+                    else
+                    {
+                        // Between feature and scenarios or other lines - ignore or keep if needed
+                    }
+                }
+            }
+
+            // Save last scenario if any
+            if (insideScenario && currentTitle != null)
+            {
+                scenarioBlocks.Add((new List<string>(currentTags), currentTitle, new List<string>(currentSteps)));
+            }
+
+            // Now merge example tables that are separated scenarios with only example tables,
+            // typically the next scenario is actually example data for the previous scenario.
+            // We'll detect those by looking for steps starting with "Given Examples" etc.
+
+            var mergedScenarios = new List<(List<string> Tags, string TitleLine, List<string> Steps)>();
+
+            for (int i = 0; i < scenarioBlocks.Count; i++)
+            {
+                var (tags, title, steps) = scenarioBlocks[i];
+
+                // Check if this scenario looks like just an Examples block
+                // We'll consider it an example block if:
+                // - Steps contain a "Given Examples" line
+                // - Steps mostly are example tables (lines starting with "|" after "Given Examples")
+                bool isExamplesOnly = false;
+                int givenExamplesIndex = -1;
+                for (int si = 0; si < steps.Count; si++)
+                {
+                    if (steps[si].Trim() == "Given Examples")
+                    {
+                        givenExamplesIndex = si;
+                        break;
+                    }
+                }
+
+                if (givenExamplesIndex >= 0)
+                {
+                    // Check if following lines are example table rows or "And |" header
+                    // We'll gather the example lines from steps[givenExamplesIndex+1 ...]
+                    var exampleLines = new List<string>();
+
+                    int exLineIndex = givenExamplesIndex + 1;
+                    // Handle optional "And | ..." header line (strip "And ")
+                    if (exLineIndex < steps.Count && steps[exLineIndex].TrimStart().StartsWith("And |"))
+                    {
+                        string headerLine = steps[exLineIndex].TrimStart().Substring(4);
+                        exampleLines.Add(headerLine);
+                        exLineIndex++;
+                    }
+                    else if (exLineIndex < steps.Count && steps[exLineIndex].TrimStart().StartsWith("|"))
+                    {
+                        exampleLines.Add(steps[exLineIndex].TrimStart());
+                        exLineIndex++;
+                    }
+
+                    // Add remaining table rows starting with |
+                    while (exLineIndex < steps.Count && steps[exLineIndex].TrimStart().StartsWith("|"))
+                    {
+                        exampleLines.Add(steps[exLineIndex].TrimStart());
+                        exLineIndex++;
+                    }
+
+                    // If we got some example lines, treat this scenario as example-only
+                    if (exampleLines.Count > 0)
+                    {
+                        isExamplesOnly = true;
+
+                        // Attach these example lines to the previous scenario as Examples:
+                        if (mergedScenarios.Count > 0)
+                        {
+                            var prev = mergedScenarios[mergedScenarios.Count - 1];
+                            var prevSteps = new List<string>(prev.Steps);
+
+                            // Insert Examples: block with proper indentation (match previous step indentation)
+                            // Find indentation of first step line (usually spaces at start)
+                            string indent = "";
+                            foreach (var stepLine in prevSteps)
+                            {
+                                if (!string.IsNullOrWhiteSpace(stepLine))
+                                {
+                                    int firstNonSpace = stepLine.TakeWhile(c => c == ' ').Count();
+                                    indent = stepLine.Substring(0, firstNonSpace);
+                                    break;
+                                }
+                            }
+                            // Add Examples: line + example table lines indented one level more (4 spaces)
+                            prevSteps.Add(indent + "Examples:");
+                            string exampleIndent = indent + "    ";
+                            foreach (var exLine in exampleLines)
+                            {
+                                prevSteps.Add(exampleIndent + exLine.TrimEnd());
+                            }
+
+                            mergedScenarios[mergedScenarios.Count - 1] = (prev.Tags, prev.TitleLine, prevSteps);
+                        }
+                        else
+                        {
+                            // No previous scenario to attach to, keep as is
+                            mergedScenarios.Add((tags, title, steps));
+                        }
+                    }
+                    else
+                    {
+                        mergedScenarios.Add((tags, title, steps));
+                    }
+                }
+                else
+                {
+                    mergedScenarios.Add((tags, title, steps));
+                }
+            }
+
+            // Now renumber scenario tags and titles sequentially
+            // Extract feature id from featureHeader like "Feature: TST-00000 - ..."
+            string featureId = "TST00000";
+            var featureMatch = System.Text.RegularExpressions.Regex.Match(featureHeader, @"Feature:\s*(\S+)");
+            if (featureMatch.Success)
+            {
+                featureId = featureMatch.Groups[1].Value.Replace("-", "");
+            }
+
+            for (int i = 0; i < mergedScenarios.Count; i++)
+            {
+                int scenarioNumber = i + 1;
+                var (tags, title, steps) = mergedScenarios[i];
+
+                // Update tags: replace @TSTxxxxx_XX style with new number padded 2 digits
+                var updatedTags = new List<string>();
+                foreach (var tagLine in tags)
+                {
+                    string updatedTagLine = System.Text.RegularExpressions.Regex.Replace(tagLine, $@"@{featureId}_(\d+)", $"@{featureId}_{scenarioNumber:00}");
+                    updatedTags.Add(updatedTagLine);
+                }
+
+                // Update scenario title line, replace EX.TSTxxxxx_XX with current number
+                string updatedTitle = System.Text.RegularExpressions.Regex.Replace(title, $@"EX\.{featureId}_(\d+)", $"EX.{featureId}_{scenarioNumber:00}");
+
+                mergedScenarios[i] = (updatedTags, updatedTitle, steps);
+            }
+
+            // Rebuild the full text
+            var output = new List<string>();
+            if (!string.IsNullOrEmpty(featureHeader))
+            {
+                output.Add(featureHeader);
+                output.Add("");
+            }
+
+            foreach (var (tags, title, steps) in mergedScenarios)
+            {
+                // Add tags
+                foreach (var tagLine in tags)
+                {
+                    output.Add("    " + tagLine);
+                }
+                // Add scenario title
+                output.Add("    " + title);
+
+                // Add scenario steps
+                foreach (var stepLine in steps)
+                {
+                    output.Add(stepLine);
+                }
+                output.Add("");
+            }
+
+            // Set back to txtGherkin.Text
+            txtGherkin.Text = string.Join("\r\n", output);
+        }
+
+
 
         private void lblDrop_DragDrop(object sender, DragEventArgs e)
         {
@@ -133,6 +368,8 @@ namespace MindMapToGherkin
 
                         // Display the Gherkin output in the txtGherkin text field
                         txtGherkin.Text = gherkinScenarios;
+                        MergeGherkinScenariosWithExamples();
+                        HighlightGherkinSyntax();
                     }
                     else
                     {
@@ -144,6 +381,8 @@ namespace MindMapToGherkin
                 else if (files[0].EndsWith(".mm"))
                 {
                     ProcessMmFile(files[0], int.Parse(txtLevel.Text));
+                    MergeGherkinScenariosWithExamples();
+                    HighlightGherkinSyntax();
                 }
                 else
                 {
@@ -661,7 +900,7 @@ namespace MindMapToGherkin
 
         private void txtGherkin_TextChanged(object sender, EventArgs e)
         {
-            HighlightGherkinSyntax();
+            //HighlightGherkinSyntax();
         }
     }
 }

@@ -63,10 +63,10 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Font = new Font("Segoe UI", 12F);
+            label1.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label1.Location = new Point(1286, 24);
             label1.Name = "label1";
-            label1.Size = new Size(110, 21);
+            label1.Size = new Size(120, 21);
             label1.TabIndex = 2;
             label1.Text = "Scenario Level";
             // 
@@ -83,7 +83,7 @@
             // txtParent
             // 
             txtParent.Font = new Font("Segoe UI", 12F);
-            txtParent.Location = new Point(169, 17);
+            txtParent.Location = new Point(185, 20);
             txtParent.Name = "txtParent";
             txtParent.Size = new Size(140, 29);
             txtParent.TabIndex = 5;
@@ -92,10 +92,10 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Font = new Font("Segoe UI", 12F);
+            label2.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label2.Location = new Point(12, 22);
             label2.Name = "label2";
-            label2.Size = new Size(151, 21);
+            label2.Size = new Size(167, 21);
             label2.TabIndex = 4;
             label2.Text = "Parent Node of Tests";
             // 
@@ -114,10 +114,10 @@
             // label3
             // 
             label3.AutoSize = true;
-            label3.Font = new Font("Segoe UI", 12F);
+            label3.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
             label3.Location = new Point(333, 22);
             label3.Name = "label3";
-            label3.Size = new Size(65, 21);
+            label3.Size = new Size(71, 21);
             label3.TabIndex = 8;
             label3.Text = "Domain";
             // 
@@ -127,7 +127,7 @@
             drpDomain.Font = new Font("Segoe UI", 12F);
             drpDomain.FormattingEnabled = true;
             drpDomain.Items.AddRange(new object[] { "EX", "LG", "OR", "ST", "XL", "IN", "WB" });
-            drpDomain.Location = new Point(404, 16);
+            drpDomain.Location = new Point(405, 16);
             drpDomain.Name = "drpDomain";
             drpDomain.Size = new Size(66, 29);
             drpDomain.TabIndex = 9;
@@ -145,17 +145,17 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Font = new Font("Segoe UI", 12F);
+            label4.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
             label4.Location = new Point(492, 20);
             label4.Name = "label4";
-            label4.Size = new Size(54, 21);
+            label4.Size = new Size(58, 21);
             label4.TabIndex = 10;
             label4.Text = "TST ID";
             // 
             // txtSequence
             // 
             txtSequence.Font = new Font("Segoe UI", 12F);
-            txtSequence.Location = new Point(757, 17);
+            txtSequence.Location = new Point(760, 17);
             txtSequence.Name = "txtSequence";
             txtSequence.Size = new Size(56, 29);
             txtSequence.TabIndex = 13;
@@ -165,17 +165,17 @@
             // label5
             // 
             label5.AutoSize = true;
-            label5.Font = new Font("Segoe UI", 12F);
+            label5.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
             label5.Location = new Point(638, 22);
             label5.Name = "label5";
-            label5.Size = new Size(113, 21);
+            label5.Size = new Size(124, 21);
             label5.TabIndex = 12;
             label5.Text = "Sequence Start";
             // 
             // txtRequirements
             // 
             txtRequirements.Font = new Font("Segoe UI", 12F);
-            txtRequirements.Location = new Point(953, 17);
+            txtRequirements.Location = new Point(959, 17);
             txtRequirements.Name = "txtRequirements";
             txtRequirements.Size = new Size(312, 29);
             txtRequirements.TabIndex = 15;
@@ -183,10 +183,10 @@
             // label6
             // 
             label6.AutoSize = true;
-            label6.Font = new Font("Segoe UI", 12F);
+            label6.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
             label6.Location = new Point(840, 22);
             label6.Name = "label6";
-            label6.Size = new Size(107, 21);
+            label6.Size = new Size(116, 21);
             label6.TabIndex = 14;
             label6.Text = "Requirements";
             // 
