@@ -285,9 +285,11 @@ namespace MindMapToGherkin
                 featureId = featureMatch.Groups[1].Value.Replace("-", "");
             }
 
+            int startNumber = int.Parse(txtSequence.Text); // Read starting number from the textbox
+
             for (int i = 0; i < mergedScenarios.Count; i++)
             {
-                int scenarioNumber = i + 1;
+                int scenarioNumber = startNumber + i;
                 var (tags, title, steps) = mergedScenarios[i];
 
                 // Update tags: replace @TSTxxxxx_XX style with new number padded 2 digits
@@ -301,8 +303,10 @@ namespace MindMapToGherkin
                 // Update scenario title line, replace EX.TSTxxxxx_XX with current number
                 string updatedTitle = System.Text.RegularExpressions.Regex.Replace(title, $@"EX\.{featureId}_(\d+)", $"EX.{featureId}_{scenarioNumber:00}");
 
+                // Update the scenario in the list
                 mergedScenarios[i] = (updatedTags, updatedTitle, steps);
             }
+
 
             // Rebuild the full text
             var output = new List<string>();
@@ -332,7 +336,63 @@ namespace MindMapToGherkin
 
             // Set back to txtGherkin.Text
             txtGherkin.Text = string.Join("\r\n", output);
+            ConvertToScenarioOutlineIfExamplesExist();
         }
+
+        public void ConvertToScenarioOutlineIfExamplesExist()
+        {
+            string featureText = txtGherkin.Text;
+            var lines = featureText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var updatedLines = new List<string>();
+
+            int i = 0;
+            while (i < lines.Length)
+            {
+                if (lines[i].TrimStart().StartsWith("Scenario:"))
+                {
+                    int scenarioStartIndex = i;
+                    bool hasExamples = false;
+                    var scenarioBlock = new List<string>();
+
+                    // Add the original scenario title line temporarily
+                    scenarioBlock.Add(lines[i]);
+                    i++;
+
+                    // Collect all scenario lines until the next scenario or tag
+                    while (i < lines.Length &&
+                           !lines[i].TrimStart().StartsWith("Scenario") &&
+                           !lines[i].TrimStart().StartsWith("@"))
+                    {
+                        if (lines[i].TrimStart().StartsWith("Examples:"))
+                        {
+                            hasExamples = true;
+                        }
+
+                        scenarioBlock.Add(lines[i]);
+                        i++;
+                    }
+
+                    // Update the scenario title if examples were found
+                    if (hasExamples)
+                    {
+                        string originalLine = scenarioBlock[0];
+                        int indent = originalLine.Length - originalLine.TrimStart().Length;
+                        string updatedLine = new string(' ', indent) + originalLine.TrimStart().Replace("Scenario:", "Scenario Outline:");
+                        scenarioBlock[0] = updatedLine;
+                    }
+
+                    updatedLines.AddRange(scenarioBlock);
+                }
+                else
+                {
+                    updatedLines.Add(lines[i]);
+                    i++;
+                }
+            }
+
+            txtGherkin.Text = string.Join("\n", updatedLines);
+        }
+
 
 
 
@@ -715,7 +775,7 @@ namespace MindMapToGherkin
 
             txtGherkin.Text = string.Empty;
 
-            txtGherkin.Text = "Feature: TST-" + txtTSTID.Text + " - Enter your feature title here\n\n" + string.Join(Environment.NewLine + Environment.NewLine, scenarios);
+            txtGherkin.Text = $"Feature: TST-{txtTSTID.Text} - {txtFeatureTitle.Text}\n\n" + string.Join(Environment.NewLine + Environment.NewLine, scenarios);
         }
 
         // Method to generate Gherkin scenarios from the nodes
