@@ -48,19 +48,22 @@
             // 
             // txtGherkin
             // 
-            txtGherkin.BackColor = Color.Black;
-            txtGherkin.Font = new Font("Consolas", 12F, FontStyle.Regular, GraphicsUnit.Point);
-            txtGherkin.ForeColor = Color.GreenYellow;
+            txtGherkin.BackColor = SystemColors.Control;
+            txtGherkin.Font = new Font("Consolas", 14.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            txtGherkin.ForeColor = SystemColors.ActiveCaptionText;
             txtGherkin.Location = new Point(12, 56);
             txtGherkin.Name = "txtGherkin";
+            txtGherkin.ReadOnly = true;
             txtGherkin.Size = new Size(1662, 863);
             txtGherkin.TabIndex = 1;
             txtGherkin.Text = "";
+            txtGherkin.WordWrap = false;
+            txtGherkin.TextChanged += txtGherkin_TextChanged;
             // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label1.Font = new Font("Segoe UI", 12F);
             label1.Location = new Point(1286, 24);
             label1.Name = "label1";
             label1.Size = new Size(110, 21);
@@ -69,7 +72,7 @@
             // 
             // txtLevel
             // 
-            txtLevel.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            txtLevel.Font = new Font("Segoe UI", 12F);
             txtLevel.Location = new Point(1419, 16);
             txtLevel.Name = "txtLevel";
             txtLevel.Size = new Size(33, 29);
@@ -79,7 +82,7 @@
             // 
             // txtParent
             // 
-            txtParent.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            txtParent.Font = new Font("Segoe UI", 12F);
             txtParent.Location = new Point(169, 17);
             txtParent.Name = "txtParent";
             txtParent.Size = new Size(140, 29);
@@ -89,7 +92,7 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label2.Font = new Font("Segoe UI", 12F);
             label2.Location = new Point(12, 22);
             label2.Name = "label2";
             label2.Size = new Size(151, 21);
@@ -98,7 +101,7 @@
             // 
             // btnClear
             // 
-            btnClear.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            btnClear.Font = new Font("Segoe UI", 12F);
             btnClear.ForeColor = Color.Black;
             btnClear.Location = new Point(1476, 9);
             btnClear.Name = "btnClear";
@@ -111,7 +114,7 @@
             // label3
             // 
             label3.AutoSize = true;
-            label3.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label3.Font = new Font("Segoe UI", 12F);
             label3.Location = new Point(333, 22);
             label3.Name = "label3";
             label3.Size = new Size(65, 21);
@@ -121,7 +124,7 @@
             // drpDomain
             // 
             drpDomain.DropDownStyle = ComboBoxStyle.DropDownList;
-            drpDomain.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            drpDomain.Font = new Font("Segoe UI", 12F);
             drpDomain.FormattingEnabled = true;
             drpDomain.Items.AddRange(new object[] { "EX", "LG", "OR", "ST", "XL", "IN", "WB" });
             drpDomain.Location = new Point(404, 16);
@@ -131,7 +134,7 @@
             // 
             // txtTSTID
             // 
-            txtTSTID.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            txtTSTID.Font = new Font("Segoe UI", 12F);
             txtTSTID.Location = new Point(552, 17);
             txtTSTID.Name = "txtTSTID";
             txtTSTID.Size = new Size(56, 29);
@@ -142,7 +145,7 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label4.Font = new Font("Segoe UI", 12F);
             label4.Location = new Point(492, 20);
             label4.Name = "label4";
             label4.Size = new Size(54, 21);
@@ -151,7 +154,7 @@
             // 
             // txtSequence
             // 
-            txtSequence.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            txtSequence.Font = new Font("Segoe UI", 12F);
             txtSequence.Location = new Point(757, 17);
             txtSequence.Name = "txtSequence";
             txtSequence.Size = new Size(56, 29);
@@ -162,7 +165,7 @@
             // label5
             // 
             label5.AutoSize = true;
-            label5.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label5.Font = new Font("Segoe UI", 12F);
             label5.Location = new Point(638, 22);
             label5.Name = "label5";
             label5.Size = new Size(113, 21);
@@ -171,7 +174,7 @@
             // 
             // txtRequirements
             // 
-            txtRequirements.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            txtRequirements.Font = new Font("Segoe UI", 12F);
             txtRequirements.Location = new Point(953, 17);
             txtRequirements.Name = "txtRequirements";
             txtRequirements.Size = new Size(312, 29);
@@ -180,7 +183,7 @@
             // label6
             // 
             label6.AutoSize = true;
-            label6.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+            label6.Font = new Font("Segoe UI", 12F);
             label6.Location = new Point(840, 22);
             label6.Name = "label6";
             label6.Size = new Size(107, 21);
@@ -189,7 +192,7 @@
             // 
             // BtnHelp
             // 
-            BtnHelp.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold, GraphicsUnit.Point);
+            BtnHelp.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             BtnHelp.ForeColor = Color.Black;
             BtnHelp.Location = new Point(1633, 9);
             BtnHelp.Name = "BtnHelp";

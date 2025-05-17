@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Drawing;
 
 namespace MindMapToGherkin
 {
@@ -29,6 +31,75 @@ namespace MindMapToGherkin
                 e.Effect = DragDropEffects.Copy;
             }
         }
+
+        private void HighlightGherkinSyntax()
+        {
+            int selectionStart = txtGherkin.SelectionStart;
+            int selectionLength = txtGherkin.SelectionLength;
+
+            txtGherkin.SuspendLayout();
+
+            // Get lines and indent table lines with 12 spaces
+            string[] lines = txtGherkin.Lines;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (Regex.IsMatch(lines[i], @"^\s*\|")) // Table line
+                {
+                    lines[i] = lines[i].Trim(); // Remove any existing leading whitespace
+                    lines[i] = new string(' ', 12) + lines[i]; // Add 12 spaces
+                }
+            }
+
+            // Update text with indented tables
+            txtGherkin.Lines = lines;
+
+            // Reset all formatting
+            txtGherkin.SelectAll();
+            txtGherkin.SelectionColor = Color.Black;
+            txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
+
+            string text = txtGherkin.Text;
+
+            // Patterns and formatting
+            var formattingRules = new List<(string pattern, Color color, bool bold)>
+    {
+        // Gherkin keywords
+        (@"\b(Feature|Scenario Outline|Scenario|Background|Examples|Given|When|Then|And|But)\b", Color.DarkBlue, true),
+
+        // Comments
+        (@"#.*?$", Color.DarkGray, false),
+
+        // Quoted strings
+        ("\"[^\"]*\"", Color.Brown, false),
+
+        // Parameters in angle brackets
+        ("<[^>]+>", Color.Purple, false),
+
+        // Tags
+        (@"@\w+", Color.Teal, false),
+
+        // Docstrings (""" multiline content """)
+        ("\"\"\"[\\s\\S]*?\"\"\"", Color.DarkGreen, true),
+    };
+
+            foreach (var (pattern, color, bold) in formattingRules)
+            {
+                foreach (Match match in Regex.Matches(text, pattern, RegexOptions.Multiline))
+                {
+                    txtGherkin.Select(match.Index, match.Length);
+                    txtGherkin.SelectionColor = color;
+                    txtGherkin.SelectionFont = new Font(txtGherkin.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+                }
+            }
+
+            // Restore original selection
+            txtGherkin.Select(selectionStart, selectionLength);
+            txtGherkin.SelectionColor = Color.Black;
+            txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
+
+            txtGherkin.ResumeLayout();
+        }
+
 
         private void lblDrop_DragDrop(object sender, DragEventArgs e)
         {
@@ -588,5 +659,9 @@ namespace MindMapToGherkin
             );
         }
 
+        private void txtGherkin_TextChanged(object sender, EventArgs e)
+        {
+            HighlightGherkinSyntax();
+        }
     }
 }
