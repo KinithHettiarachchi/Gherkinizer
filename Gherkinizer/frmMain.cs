@@ -14,6 +14,8 @@ namespace MindMapToGherkin
 {
     public partial class frmMain : Form
     {
+        string testcaseprefix = "TST-";
+        string testcaseroot = @"C:\Manual";
         private XNamespace ns = "urn:xmind:xmap:xmlns:content:2.0";
 
         public frmMain()
@@ -22,6 +24,7 @@ namespace MindMapToGherkin
             txtGherkin.AllowDrop = true;
             txtGherkin.DragEnter += lblDrop_DragEnter;
             txtGherkin.DragDrop += lblDrop_DragDrop;
+            lblTestCasePrefix.Text = testcaseprefix;
             drpDomain.SelectedIndex = 0;
         }
 
@@ -40,47 +43,40 @@ namespace MindMapToGherkin
 
             txtGherkin.SuspendLayout();
 
-            // Get lines and indent table lines with 12 spaces
+            // Set dark mode background and base font color
+            //txtGherkin.BackColor = Color.Black;
+            txtGherkin.ForeColor = Color.White;
+
+            // Indent tables
             string[] lines = txtGherkin.Lines;
             for (int i = 0; i < lines.Length; i++)
             {
-                if (Regex.IsMatch(lines[i], @"^\s*\|")) // Table line
+                if (Regex.IsMatch(lines[i], @"^\s*\|"))
                 {
-                    lines[i] = lines[i].Trim(); // Remove any existing leading whitespace
-                    lines[i] = new string(' ', 12) + lines[i]; // Add 12 spaces
+                    lines[i] = lines[i].Trim();
+                    lines[i] = new string(' ', 12) + lines[i];
                 }
             }
-
-            // Update text with indented tables
             txtGherkin.Lines = lines;
 
-            // Reset all formatting
+            // Reset all formatting to white text
             txtGherkin.SelectAll();
-            txtGherkin.SelectionColor = Color.Black;
+            txtGherkin.SelectionColor = Color.White;
             txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
 
             string text = txtGherkin.Text;
 
-            // Patterns and formatting
+            // Syntax highlight rules
             var formattingRules = new List<(string pattern, Color color, bool bold)>
     {
-        // Gherkin keywords
-        (@"\b(Feature|Scenario Outline|Scenario|Background|Examples|Given|When|Then|And|But)\b", Color.DarkBlue, true),
-
-        // Comments
-        (@"#.*?$", Color.DarkGray, false),
-
-        // Quoted strings
-        ("\"[^\"]*\"", Color.Brown, false),
-
-        // Parameters in angle brackets
-        ("<[^>]+>", Color.Purple, false),
-
-        // Tags
-        (@"@\w+", Color.Teal, false),
-
-        // Docstrings (""" multiline content """)
-        ("\"\"\"[\\s\\S]*?\"\"\"", Color.DarkGreen, true),
+        (@"\b(Feature)\b", Color.DeepPink, true),
+        (@"\b(Scenario Outline|Scenario|Background|Examples)\b", Color.MediumSlateBlue, true),
+        (@"\b(Given|When|Then|And|But)\b", Color.LimeGreen, true),
+        (@"#.*?$", Color.Gray, false),
+        ("\"[^\"]*\"", Color.LightSalmon, false),
+        ("<[^>]+>", Color.Gold, false),
+        (@"@\w+", Color.DodgerBlue, false),
+        ("\"\"\"[\\s\\S]*?\"\"\"", Color.MediumAquamarine, true),
     };
 
             foreach (var (pattern, color, bold) in formattingRules)
@@ -93,13 +89,14 @@ namespace MindMapToGherkin
                 }
             }
 
-            // Restore original selection
+            // Restore user's original selection (no reset to black here!)
             txtGherkin.Select(selectionStart, selectionLength);
-            txtGherkin.SelectionColor = Color.Black;
+            txtGherkin.SelectionColor = Color.White;
             txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
 
             txtGherkin.ResumeLayout();
         }
+
 
         public void MergeGherkinScenariosWithExamples()
         {
@@ -393,18 +390,115 @@ namespace MindMapToGherkin
             txtGherkin.Text = string.Join("\n", updatedLines);
         }
 
+        private void TxtTSTID_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            e.Handled = !char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar);
+        }
 
+        private void TxtRequirements_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            // Allow basic control keys
+            if (char.IsControl(e.KeyChar)) return;
+
+            // Auto-capitalize r/e/q
+            if (char.ToLower(e.KeyChar) == 'r' || char.ToLower(e.KeyChar) == 'e' || char.ToLower(e.KeyChar) == 'q')
+            {
+                e.KeyChar = char.ToUpper(e.KeyChar);
+            }
+
+            var tb = sender as TextBox;
+            int pos = tb.SelectionStart;
+
+            // Simulate resulting text
+            string before = tb.Text.Substring(0, pos);
+            string after = tb.Text.Substring(pos);
+            string simulated = before + e.KeyChar + after;
+
+            // Allow digits, R/E/Q, hyphen, comma, space
+            if (!char.IsDigit(e.KeyChar) && !"REQ-, ".Contains(e.KeyChar))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Auto-insert " REQ-" after comma
+            if (e.KeyChar == ',')
+            {
+                e.Handled = true; // Block default comma behavior
+
+                // Insert ", REQ-" at the current position
+                string insertText = ", REQ-";
+                tb.Text = before + insertText + after;
+
+                // Move cursor after the inserted "REQ-"
+                tb.SelectionStart = (before + insertText).Length;
+            }
+        }
 
 
         private void lblDrop_DragDrop(object sender, DragEventArgs e)
         {
+            if (!int.TryParse(txtTSTID.Text.Trim(), out int tstId) || tstId <= 0 || txtTSTID.Text == "00000")
+            {
+                MessageBox.Show("Please enter a valid TST ID!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtTSTID.Focus();
+                txtTSTID.SelectAll();
+                return;
+            }
+
+            if (txtFeatureTitle.Text.Trim() == "Enter your feature title here" || txtFeatureTitle.Text.Trim() == "")
+            {
+                MessageBox.Show("Please enter a valid feature title!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtFeatureTitle.Focus();
+                txtFeatureTitle.SelectAll();
+                return;
+            }
+
+            string requirements = txtRequirements.Text.Trim();
+            string pattern = @"^(REQ-\d{4,})(,\s*REQ-\d{4,})*$";
+
+            if (string.IsNullOrEmpty(requirements) || requirements == "REQ-00000, REQ-00000" || !Regex.IsMatch(requirements, pattern))
+            {
+                MessageBox.Show("Please enter valid requirement IDs (e.g., REQ-1234, REQ-5678).", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtRequirements.Focus();
+                txtRequirements.SelectAll();
+                return;
+            }
+
+
+            if (txtParent.Text.Trim() == "")
+            {
+                MessageBox.Show("Please enter valid functional test parent node!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtParent.Focus();
+                txtParent.SelectAll();
+                return;
+            }
+
+            if (!int.TryParse(txtLevel.Text.Trim(), out int level) || level <= 0)
+            {
+                MessageBox.Show("Please enter valid functional test parent node level!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtLevel.Focus();
+                txtLevel.SelectAll();
+                return;
+            }
+
+            if (!int.TryParse(txtSequence.Text.Trim(), out int sequence) || sequence <= 0)
+            {
+                MessageBox.Show("Please enter valid scenario start sequence!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtSequence.Focus();
+                txtSequence.SelectAll();
+                return;
+            }
+
+            if (chkClearOnDrop.Checked)
+            {
+                txtGherkin.Clear();
+            }
+
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             scenarioSequence = int.Parse(txtSequence.Text.Trim());
 
-            if (!ConfirmAction($"Please confirm that the following information is correct!\n\nMindmap File :\n{files[0]}\n\nParent node of tests:\n{txtParent.Text}\n\nDomain:\n{drpDomain.Text}\n\nTestable Functionality ID :\nTST-{txtTSTID.Text}\n\nSequence Start :\n{scenarioSequence}\n\nRequirements :\n{txtRequirements.Text}", $"Confirm Conversion!"))
-            {
-                return;
-            }
+
             if (files != null && files.Length > 0)
             {
                 if (files[0].EndsWith(".xmind"))
@@ -452,15 +546,6 @@ namespace MindMapToGherkin
             }
         }
 
-        private bool ConfirmAction(string message, string title)
-        {
-            // Display a confirmation message box with Yes and No buttons
-            DialogResult result = MessageBox.Show(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
-            // Check the result of the dialog
-            return result == DialogResult.Yes; // Returns true if Yes is clicked, false otherwise
-        }
-
         private void ExtractXmindFile(string xmindFile, string extractTo)
         {
             string sevenZipPath = @"C:\Program Files\7-Zip\7z.exe";  // Update this path if needed
@@ -485,6 +570,17 @@ namespace MindMapToGherkin
                     MessageBox.Show($"Error extracting .xmind file: {errorOutput}");
                 }
             }
+        }
+
+        private void txtLevel_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            // Allow control keys (e.g., Backspace), and digits
+            e.Handled = !char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar);
+        }
+
+        private void txtSequence_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            e.Handled = !char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar);
         }
 
         private string ConvertToGherkin(XDocument xmlDoc)
@@ -944,23 +1040,127 @@ namespace MindMapToGherkin
         private void BtnHelp_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                " Instructions for Mind Map\n\n" +
-                "• Place your scenarios under a node named 'Functional Tests'.\n\n" +
-                "• Each node path must denote one scenario from left to right.\n\n" +
-                "• Include your preconditions in the first (left most) steps. These will be taken as 'Given' steps and should not start with words 'user' or 'system'.\n\n" +
-                "• Every user action must start with the word 'user'. These will be converted as 'When' steps.\n\n" +
-                "• Every system result must start with the word 'system'. These will be converted as 'Then' steps.\n\n" +
-                "• If you want to skip any node in the mind map path, start those with '~'. Such steps will not be converted to a Gherkin step, and will simply be skipped.\n\n" +
-                "• Enter the domain, TST ID, and Requirements before dropping the file so the tool will automatically handle the scenario naming and default tags.\n\n" +
-                "• Once converted, copy and paste it into your Gherkin editor and do the modifications needed.\n\n\n" +
-                "Support: khettiarachchi@aexis-medical.com",
+                "Instructions for Mind Map\n\n" +
+                "ðŸ›Ÿ Place your scenarios under a node named 'Functional Tests'.\n\n" +
+                "ðŸ›Ÿ Include your preconditions in the first (left most) steps. These will be taken as 'Given' steps and should not start with words 'user' or 'system'.\n\n" +
+                "ðŸ›Ÿ Every user action must start with the word 'user'. These will be converted as 'When' steps.\n\n" +
+                "ðŸ›Ÿ Every system result must start with the word 'system'. These will be converted as 'Then' steps.\n\n" +
+                "ðŸ›Ÿ If you want to skip any node in the mind map path, start those with '~'. Such steps will not be converted to a Gherkin step, and will simply be skipped.\n\n" +
+                "ðŸ›Ÿ Enter the domain, TST ID, and Requirements before dropping the file so the tool will automatically handle the scenario naming and default tags.\n\n" +
+                "ðŸ›Ÿ Once converted, copy and paste it into your Gherkin editor and do the modifications needed.",
                 "Help", MessageBoxButtons.OK, MessageBoxIcon.Information
             );
         }
+
 
         private void txtGherkin_TextChanged(object sender, EventArgs e)
         {
             //HighlightGherkinSyntax();
         }
+
+        private void txtLevel_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtTSTID_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnCopy_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(txtGherkin.Text))
+            {
+                Clipboard.SetText(txtGherkin.Text);
+                MessageBox.Show("Gherkin text copied to clipboard!", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("There is no text to copy.", "Empty Text", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void btnLocate_Click(object sender, EventArgs e)
+        {
+            string idToFind = testcaseprefix.Replace("-", "") + txtTSTID.Text + "_";
+            string pathToFind = testcaseroot;
+
+            try
+            {
+                var matchingFile = Directory.EnumerateFiles(pathToFind, "*", SearchOption.AllDirectories)
+                                            .FirstOrDefault(file => Path.GetFileName(file).StartsWith(idToFind, StringComparison.OrdinalIgnoreCase));
+
+                if (matchingFile != null)
+                {
+                    // Optional: Show file path
+                    //MessageBox.Show("Found: " + matchingFile, "File Located", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                    // Open the file with default associated application
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = matchingFile,
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    MessageBox.Show("There is no feature file for " + testcaseprefix + txtTSTID.Text + " in your test case repository!\nPlease add the file first and then try again!", "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error searching or opening file:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnWriteToFeatureFile_Click(object sender, EventArgs e)
+        {
+            string idToFind = testcaseprefix.Replace("-", "") + txtTSTID.Text + "_";
+            string pathToFind = testcaseroot;
+
+            try
+            {
+                var matchingFile = Directory.EnumerateFiles(pathToFind, "*", SearchOption.AllDirectories)
+                                            .FirstOrDefault(file => Path.GetFileName(file).StartsWith(idToFind, StringComparison.OrdinalIgnoreCase));
+
+                if (matchingFile == null)
+                {
+                    MessageBox.Show("There is no feature file for " + testcaseprefix + txtTSTID.Text +
+                                    " in your test case repository!\nPlease add the file first and then try again!",
+                                    "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Check if the file has content
+                string existingContent = File.ReadAllText(matchingFile);
+                if (!string.IsNullOrWhiteSpace(existingContent))
+                {
+                    var result = MessageBox.Show("The feature file " + testcaseprefix + txtTSTID.Text + " already contains content.\nDo you want to overwrite the file with the new content?",
+                                                 "Confirm Overwrite", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                    if (result != DialogResult.Yes)
+                    {
+                        return; // Stop if user does not want to overwrite
+                    }
+                }
+
+                // Write the content from txtGherkin to the file
+                File.WriteAllText(matchingFile, txtGherkin.Text);
+
+                // Open the file with the default application
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = matchingFile,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error writing or opening the file:\n" + ex.Message,
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
     }
 }
