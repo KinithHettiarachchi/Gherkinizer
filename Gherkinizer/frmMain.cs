@@ -12,11 +12,11 @@ using System.Drawing;
 
 namespace MindMapToGherkin
 {
-    public partial class Form1 : Form
+    public partial class frmMain : Form
     {
         private XNamespace ns = "urn:xmind:xmap:xmlns:content:2.0";
 
-        public Form1()
+        public frmMain()
         {
             InitializeComponent();
             txtGherkin.AllowDrop = true;

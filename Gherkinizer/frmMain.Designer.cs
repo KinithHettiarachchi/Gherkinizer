@@ -1,6 +1,6 @@
 ﻿namespace MindMapToGherkin
 {
-    partial class Form1
+    partial class frmMain
     {
         /// <summary>
         ///  Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             txtGherkin = new RichTextBox();
             label1 = new Label();
             txtLevel = new TextBox();
@@ -212,7 +212,7 @@
             label7.TabIndex = 17;
             label7.Text = "Feature Title";
             // 
-            // Form1
+            // frmMain
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
@@ -238,10 +238,10 @@
             FormBorderStyle = FormBorderStyle.FixedDialog;
             Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
-            Name = "Form1";
+            Name = "frmMain";
             Opacity = 0.97D;
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Mind Map to Gherkin";
+            Text = "Gherkinizer";
             Load += Form1_Load;
             ResumeLayout(false);
             PerformLayout();
