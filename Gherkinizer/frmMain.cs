@@ -8,15 +8,19 @@ using System.Xml.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Drawing;
+using Gherkinizer;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace MindMapToGherkin
 {
+
     public partial class frmMain : Form
     {
-        string testcaseprefix = "TST-";
-        string testcaseroot = @"C:\Manual";
+        AppSettings settings;
         private XNamespace ns = "urn:xmind:xmap:xmlns:content:2.0";
+        private string lastLoadedFilePath = "";
 
         public frmMain()
         {
@@ -24,8 +28,27 @@ namespace MindMapToGherkin
             txtGherkin.AllowDrop = true;
             txtGherkin.DragEnter += lblDrop_DragEnter;
             txtGherkin.DragDrop += lblDrop_DragDrop;
-            lblTestCasePrefix.Text = testcaseprefix;
+            
+
+            var configPath = Path.Combine(Environment.CurrentDirectory, "settings.ini");
+            settings = AppSettings.Load(configPath);
+
+            lblTestCasePrefix.Text = settings.TestPrefix;
+            lblTestCasePrefix.Text = settings.TestPrefix;
+
+            foreach (var domain in settings.DomainList)
+            {
+                drpDomain.Items.Add(domain);
+            }
+
             drpDomain.SelectedIndex = 0;
+
+            txtRequirements.Text = settings.ReqPrefix;
+            txtParent.Text = settings.ParentNode;
+            txtSequence.Text = settings.SequenceStart.ToString();
+            txtLevel.Text = settings.ScenarioLevel.ToString();
+            chkClearOnDrop.Checked = settings.ClearTextArea;
+
         }
 
         private void lblDrop_DragEnter(object sender, DragEventArgs e)
@@ -42,12 +65,9 @@ namespace MindMapToGherkin
             int selectionLength = txtGherkin.SelectionLength;
 
             txtGherkin.SuspendLayout();
-
-            // Set dark mode background and base font color
-            //txtGherkin.BackColor = Color.Black;
             txtGherkin.ForeColor = Color.White;
 
-            // Indent tables
+            // Indent table lines
             string[] lines = txtGherkin.Lines;
             for (int i = 0; i < lines.Length; i++)
             {
@@ -59,18 +79,18 @@ namespace MindMapToGherkin
             }
             txtGherkin.Lines = lines;
 
-            // Reset all formatting to white text
+            // Reset all formatting
             txtGherkin.SelectAll();
             txtGherkin.SelectionColor = Color.White;
-            txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
+            txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
+            txtGherkin.SelectionBackColor = txtGherkin.BackColor;
 
             string text = txtGherkin.Text;
 
-            // Syntax highlight rules
+            // Basic syntax highlights
             var formattingRules = new List<(string pattern, Color color, bool bold)>
     {
-        (@"\b(Feature)\b", Color.DeepPink, true),
-        (@"\b(Scenario Outline|Scenario|Background|Examples)\b", Color.MediumSlateBlue, true),
+        (@"\bFeature\b", Color.DeepPink, true),
         (@"\b(Given|When|Then|And|But)\b", Color.LimeGreen, true),
         (@"#.*?$", Color.Gray, false),
         ("\"[^\"]*\"", Color.LightSalmon, false),
@@ -85,17 +105,67 @@ namespace MindMapToGherkin
                 {
                     txtGherkin.Select(match.Index, match.Length);
                     txtGherkin.SelectionColor = color;
-                    txtGherkin.SelectionFont = new Font(txtGherkin.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+                    txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, bold ? FontStyle.Bold : FontStyle.Regular);
                 }
             }
 
-            // Restore user's original selection (no reset to black here!)
+            // Highlight Scenario/Scenario Outline/Background/Examples with black bg + blue keyword
+            var keywordBlocks = new List<(string keyword, Regex pattern)>
+{
+    ("Scenario Outline", new Regex(@"^\s*Scenario Outline:.*", RegexOptions.Multiline)),
+    ("Scenario",         new Regex(@"^\s*Scenario:\b.*", RegexOptions.Multiline)),
+    ("Background",       new Regex(@"^\s*Background\b.*", RegexOptions.Multiline)),
+    ("Examples",         new Regex(@"^\s*Examples\b.*", RegexOptions.Multiline)),
+};
+
+            // Must process longer keywords first (Scenario Outline before Scenario)
+            foreach (var (keyword, pattern) in keywordBlocks)
+            {
+                foreach (Match match in pattern.Matches(text))
+                {
+                    // Apply black background to the whole line
+                    txtGherkin.Select(match.Index, match.Length);
+                    //txtGherkin.SelectionBackColor = Color.Black;
+                    txtGherkin.SelectionColor = Color.White;
+                    txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
+
+                    // Directly highlight the keyword at the start of the line
+                    int keywordStart = match.Index + match.Value.IndexOf(keyword);
+                    txtGherkin.Select(keywordStart, keyword.Length);
+                    txtGherkin.SelectionColor = Color.DeepSkyBlue;
+                    txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Bold);
+                }
+            }
+
+
+
+            // Highlight table header rows (first row of a table block)
+            foreach (Match tableMatch in Regex.Matches(text, @"((^\s*\|.*\|.*\r?\n)+)", RegexOptions.Multiline))
+            {
+                string[] tableLines = tableMatch.Value.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                if (tableLines.Length > 0)
+                {
+                    var headerLine = tableLines[0];
+                    int headerStart = text.IndexOf(headerLine, tableMatch.Index);
+                    if (headerStart >= 0)
+                    {
+                        txtGherkin.Select(headerStart, headerLine.Length);
+                        txtGherkin.SelectionColor = Color.MediumPurple;
+                        txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Bold);
+                    }
+                }
+            }
+
+            // Restore selection
             txtGherkin.Select(selectionStart, selectionLength);
             txtGherkin.SelectionColor = Color.White;
-            txtGherkin.SelectionFont = new Font(txtGherkin.Font, FontStyle.Regular);
+            txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
+            txtGherkin.SelectionBackColor = txtGherkin.BackColor;
 
             txtGherkin.ResumeLayout();
         }
+
+
 
 
         public void MergeGherkinScenariosWithExamples()
@@ -275,7 +345,7 @@ namespace MindMapToGherkin
 
             // Now renumber scenario tags and titles sequentially
             // Extract feature id from featureHeader like "Feature: TST-00000 - ..."
-            string featureId = "TST00000";
+            string featureId = settings.TestPrefix+"00000";
             var featureMatch = System.Text.RegularExpressions.Regex.Match(featureHeader, @"Feature:\s*(\S+)");
             if (featureMatch.Success)
             {
@@ -336,6 +406,15 @@ namespace MindMapToGherkin
             ConvertToScenarioOutlineIfExamplesExist();
         }
 
+        private string ExtractFeatureId(string featureText)
+        {
+            string prefix = settings.TestPrefix; // e.g., "TST-"
+            var match = Regex.Match(featureText, $@"Feature:\s*({Regex.Escape(prefix)}\d+)");
+            string fallbackId = prefix.Replace("-", "") + "XXXXX"; // e.g., "TSTXXXXX"
+            return match.Success ? match.Groups[1].Value.Replace("-", "") : fallbackId;
+        }
+
+
         public void ConvertToScenarioOutlineIfExamplesExist()
         {
             string featureText = txtGherkin.Text;
@@ -343,52 +422,74 @@ namespace MindMapToGherkin
             var updatedLines = new List<string>();
 
             int i = 0;
+            int scenarioCounter = 1;
+            string featureId = ExtractFeatureId(featureText); // e.g., "TST25325"
+
             while (i < lines.Length)
             {
-                if (lines[i].TrimStart().StartsWith("Scenario:"))
+                if (lines[i].TrimStart().StartsWith("@manual"))
                 {
-                    int scenarioStartIndex = i;
-                    bool hasExamples = false;
-                    var scenarioBlock = new List<string>();
+                    int tagLineIndex = i;
+                    int scenarioLineIndex = i + 1;
 
-                    // Add the original scenario title line temporarily
-                    scenarioBlock.Add(lines[i]);
-                    i++;
+                    // Look ahead to find scenario line
+                    while (scenarioLineIndex < lines.Length && !lines[scenarioLineIndex].TrimStart().StartsWith("Scenario"))
+                        scenarioLineIndex++;
 
-                    // Collect all scenario lines until the next scenario or tag
-                    while (i < lines.Length &&
-                           !lines[i].TrimStart().StartsWith("Scenario") &&
-                           !lines[i].TrimStart().StartsWith("@"))
+                    if (scenarioLineIndex < lines.Length)
                     {
-                        if (lines[i].TrimStart().StartsWith("Examples:"))
+                        string scenarioLine = lines[scenarioLineIndex];
+                        string newIndex = scenarioCounter.ToString("D2");
+                        string newTagId = $"{featureId}_{newIndex}";
+
+                        // Update tag line: replace only the TST tag (not the whole line)
+                        lines[tagLineIndex] = Regex.Replace(
+                            lines[tagLineIndex],
+                            @$"\b{featureId}_\d+\b",
+                            newTagId
+                        );
+
+                        // Ensure only one @ before each tag (fix @@)
+                        lines[tagLineIndex] = Regex.Replace(lines[tagLineIndex], @"@+", "@");
+
+                        // Update Scenario title ID
+                        lines[scenarioLineIndex] = Regex.Replace(
+                            scenarioLine,
+                            @$"\b{featureId}_\d+\b",
+                            newTagId
+                        );
+
+                        // Check for Examples block and convert to Scenario Outline if needed
+                        bool hasExamples = false;
+                        for (int j = scenarioLineIndex + 1; j < lines.Length; j++)
                         {
-                            hasExamples = true;
+                            string trimmed = lines[j].TrimStart();
+                            if (trimmed.StartsWith("Examples:"))
+                            {
+                                hasExamples = true;
+                                break;
+                            }
+                            if (trimmed.StartsWith("Scenario") || trimmed.StartsWith("@")) break;
                         }
 
-                        scenarioBlock.Add(lines[i]);
-                        i++;
-                    }
+                        if (hasExamples && lines[scenarioLineIndex].TrimStart().StartsWith("Scenario:"))
+                        {
+                            lines[scenarioLineIndex] = lines[scenarioLineIndex].Replace("Scenario:", "Scenario Outline:");
+                        }
 
-                    // Update the scenario title if examples were found
-                    if (hasExamples)
-                    {
-                        string originalLine = scenarioBlock[0];
-                        int indent = originalLine.Length - originalLine.TrimStart().Length;
-                        string updatedLine = new string(' ', indent) + originalLine.TrimStart().Replace("Scenario:", "Scenario Outline:");
-                        scenarioBlock[0] = updatedLine;
+                        scenarioCounter++;
                     }
+                }
 
-                    updatedLines.AddRange(scenarioBlock);
-                }
-                else
-                {
-                    updatedLines.Add(lines[i]);
-                    i++;
-                }
+                updatedLines.Add(lines[i]);
+                i++;
             }
 
             txtGherkin.Text = string.Join("\n", updatedLines);
         }
+
+
+
 
         private void TxtTSTID_KeyPress(object sender, KeyPressEventArgs e)
         {
@@ -415,7 +516,7 @@ namespace MindMapToGherkin
             string simulated = before + e.KeyChar + after;
 
             // Allow digits, R/E/Q, hyphen, comma, space
-            if (!char.IsDigit(e.KeyChar) && !"REQ-, ".Contains(e.KeyChar))
+            if (!char.IsDigit(e.KeyChar) && !(settings.ReqPrefix+", ").Contains(e.KeyChar))
             {
                 e.Handled = true;
                 return;
@@ -427,7 +528,7 @@ namespace MindMapToGherkin
                 e.Handled = true; // Block default comma behavior
 
                 // Insert ", REQ-" at the current position
-                string insertText = ", REQ-";
+                string insertText = ", "+settings.ReqPrefix;
                 tb.Text = before + insertText + after;
 
                 // Move cursor after the inserted "REQ-"
@@ -438,6 +539,7 @@ namespace MindMapToGherkin
 
         private void lblDrop_DragDrop(object sender, DragEventArgs e)
         {
+
             if (!int.TryParse(txtTSTID.Text.Trim(), out int tstId) || tstId <= 0 || txtTSTID.Text == "00000")
             {
                 MessageBox.Show("Please enter a valid TST ID!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -446,129 +548,149 @@ namespace MindMapToGherkin
                 return;
             }
 
-            if (txtFeatureTitle.Text.Trim() == "Enter your feature title here" || txtFeatureTitle.Text.Trim() == "")
-            {
-                MessageBox.Show("Please enter a valid feature title!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtFeatureTitle.Focus();
-                txtFeatureTitle.SelectAll();
-                return;
-            }
-
-            string requirements = txtRequirements.Text.Trim();
-            string pattern = @"^(REQ-\d{4,})(,\s*REQ-\d{4,})*$";
-
-            if (string.IsNullOrEmpty(requirements) || requirements == "REQ-00000, REQ-00000" || !Regex.IsMatch(requirements, pattern))
-            {
-                MessageBox.Show("Please enter valid requirement IDs (e.g., REQ-1234, REQ-5678).", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtRequirements.Focus();
-                txtRequirements.SelectAll();
-                return;
-            }
-
-
-            if (txtParent.Text.Trim() == "")
-            {
-                MessageBox.Show("Please enter valid functional test parent node!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtParent.Focus();
-                txtParent.SelectAll();
-                return;
-            }
-
-            if (!int.TryParse(txtLevel.Text.Trim(), out int level) || level <= 0)
-            {
-                MessageBox.Show("Please enter valid functional test parent node level!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtLevel.Focus();
-                txtLevel.SelectAll();
-                return;
-            }
-
-            if (!int.TryParse(txtSequence.Text.Trim(), out int sequence) || sequence <= 0)
-            {
-                MessageBox.Show("Please enter valid scenario start sequence!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtSequence.Focus();
-                txtSequence.SelectAll();
-                return;
-            }
-
-            if (chkClearOnDrop.Checked)
-            {
-                txtGherkin.Clear();
-            }
-
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             scenarioSequence = int.Parse(txtSequence.Text.Trim());
 
 
             if (files != null && files.Length > 0)
             {
-                if (files[0].EndsWith(".xmind"))
+                if (files[0].EndsWith(".mm"))
                 {
-                    MessageBox.Show("*.xmind files have limited support. Please use Freeplane files instead!", "Attention", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    string xmindFile = files[0];
-                    string tempFolder = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(xmindFile)) + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
-                    Directory.CreateDirectory(tempFolder);
+                    lastLoadedFilePath = files[0];
 
-                    // Extract .xmind file using 7-Zip
-                    ExtractXmindFile(xmindFile, tempFolder);
+                    //Preset values
+                    string featureTitleText = GetCentralNodeText(lastLoadedFilePath.ToString());
 
-                    // Read content.xml from the extracted files
-                    string contentFilePath = Path.Combine(tempFolder, "content.xml");
-                    if (File.Exists(contentFilePath))
+                    // Only prompt if there is a mismatch and the current textbox is not empty
+                    if (txtFeatureTitle.Text != featureTitleText && txtFeatureTitle.Text != "")
                     {
-                        XDocument xmlDoc = XDocument.Load(contentFilePath);
+                        DialogResult result = MessageBox.Show(
+                            "The feature title in the mind map differs from the current text.\n\n" +
+                            "Do you want to replace the current text with the one from the mind map?\n\n" +
+                            "Yes - Replace with mind map title\n" +
+                            "No - Keep current title\n" +
+                            "Cancel - Do nothing",
+                            "Confirm Title Replacement",
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question
+                        );
 
-                        // Convert the XML content to Gherkin scenarios
-                        string gherkinScenarios = ConvertToGherkin(xmlDoc);
-
-                        // Display the Gherkin output in the txtGherkin text field
-                        txtGherkin.Text = gherkinScenarios;
-                        MergeGherkinScenariosWithExamples();
-                        HighlightGherkinSyntax();
+                        if (result == DialogResult.Yes)
+                        {
+                            txtFeatureTitle.Text = featureTitleText; // Replace
+                        }
+                        else if (result == DialogResult.No)
+                        {
+                            // Keep existing text — do nothing
+                        }
+                        else if (result == DialogResult.Cancel)
+                        {
+                            return; // Stop further processing
+                        }
                     }
                     else
                     {
-                        MessageBox.Show("content.xml file not found in the extracted .xmind archive.");
+                        // No mismatch or textbox is empty — safe to auto-assign
+                        txtFeatureTitle.Text = featureTitleText;
                     }
 
-                    Directory.Delete(tempFolder, true);
-                }
-                else if (files[0].EndsWith(".mm"))
-                {
-                    ProcessMmFile(files[0], int.Parse(txtLevel.Text));
+                    string requirementList = GetReqIdsUnderRequirements(lastLoadedFilePath.ToString());
+
+                    // Only prompt if there is a mismatch and the current textbox is not empty
+                    if (txtRequirements.Text != requirementList && txtRequirements.Text != "" && txtRequirements.Text != settings.ReqPrefix)
+                    {
+                        DialogResult result = MessageBox.Show(
+                            "The requirements in the mind map differ from the current text.\n\n" +
+                            "Do you want to replace the current requirements with the ones from the mind map?\n\n" +
+                            "Yes - Replace with mind map requirements\n" +
+                            "No - Keep current requirements\n" +
+                            "Cancel - Do nothing",
+                            "Confirm Requirements Replacement",
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question
+                        );
+
+                        if (result == DialogResult.Yes)
+                        {
+                            txtRequirements.Text = requirementList; // Replace
+                        }
+                        else if (result == DialogResult.No)
+                        {
+                            // Keep existing text — do nothing
+                        }
+                        else if (result == DialogResult.Cancel)
+                        {
+                            return; // Stop further processing
+                        }
+                    }
+                    else
+                    {
+                        // No mismatch or textbox is empty — safe to auto-assign
+                        txtRequirements.Text = requirementList;
+                    }
+
+
+                    if (txtFeatureTitle.Text.Trim() == "Enter your feature title here" || txtFeatureTitle.Text.Trim() == "")
+                    {
+                        MessageBox.Show("Please enter a valid feature title!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtFeatureTitle.Focus();
+                        txtFeatureTitle.SelectAll();
+                        return;
+                    }
+
+                    string requirements = txtRequirements.Text.Trim();
+                    string reqPrefix = settings.ReqPrefix; // e.g., "REQ-"
+                    string pattern = $@"^({Regex.Escape(reqPrefix)}\d{{4,}})(,\s*{Regex.Escape(reqPrefix)}\d{{4,}})*$";
+
+
+                    if (string.IsNullOrEmpty(requirements) || requirements == settings.ReqPrefix || !Regex.IsMatch(requirements, pattern))
+                    {
+                        MessageBox.Show($"Please enter valid requirement IDs (e.g., {settings.ReqPrefix}1234, {settings.ReqPrefix}5678).", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtRequirements.Focus();
+                        txtRequirements.SelectAll();
+                        return;
+                    }
+
+
+                    if (txtParent.Text.Trim() == "")
+                    {
+                        MessageBox.Show("Please enter valid functional test parent node!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtParent.Focus();
+                        txtParent.SelectAll();
+                        return;
+                    }
+
+                    if (!int.TryParse(txtLevel.Text.Trim(), out int level) || level <= 0)
+                    {
+                        MessageBox.Show("Please enter valid functional test parent node level!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtLevel.Focus();
+                        txtLevel.SelectAll();
+                        return;
+                    }
+
+                    if (!int.TryParse(txtSequence.Text.Trim(), out int sequence) || sequence <= 0)
+                    {
+                        MessageBox.Show("Please enter valid scenario start sequence!", "Incomplete Information!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtSequence.Focus();
+                        txtSequence.SelectAll();
+                        return;
+                    }
+
+                    if (chkClearOnDrop.Checked)
+                    {
+                        txtGherkin.Clear();
+                    }
+
+                    ProcessMmFile(lastLoadedFilePath, int.Parse(txtLevel.Text));
                     MergeGherkinScenariosWithExamples();
                     HighlightGherkinSyntax();
+                    lblFilePath.Text = lastLoadedFilePath;
                 }
                 else
                 {
-                    MessageBox.Show("File is not an .xmind or .mm");
+                    MessageBox.Show("Please provide a valid mind map file!", "Invalid File!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
 
-            }
-        }
-
-        private void ExtractXmindFile(string xmindFile, string extractTo)
-        {
-            string sevenZipPath = @"C:\Program Files\7-Zip\7z.exe";  // Update this path if needed
-
-            // Run 7-Zip to extract the .xmind file
-            ProcessStartInfo processInfo = new ProcessStartInfo
-            {
-                FileName = sevenZipPath,
-                Arguments = $"x \"{xmindFile}\" -o\"{extractTo}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using (Process process = Process.Start(processInfo))
-            {
-                process.WaitForExit();
-                if (process.ExitCode != 0)
-                {
-                    string errorOutput = process.StandardError.ReadToEnd();
-                    MessageBox.Show($"Error extracting .xmind file: {errorOutput}");
-                }
             }
         }
 
@@ -871,7 +993,7 @@ namespace MindMapToGherkin
 
             txtGherkin.Text = string.Empty;
 
-            txtGherkin.Text = $"Feature: TST-{txtTSTID.Text} - {txtFeatureTitle.Text}\n\n" + string.Join(Environment.NewLine + Environment.NewLine, scenarios);
+            txtGherkin.Text = $"Feature: {settings.TestPrefix}{txtTSTID.Text} - {txtFeatureTitle.Text}\n\n" + string.Join(Environment.NewLine + Environment.NewLine, scenarios);
         }
 
         // Method to generate Gherkin scenarios from the nodes
@@ -922,7 +1044,8 @@ namespace MindMapToGherkin
         int scenarioSequence;
         private string CreateScenarioFromPath(List<string> path)
         {
-            string scenarioTitle = $"    @manual @{txtTSTID.Text} @TST{txtTSTID.Text}_{FormatScenarioSequence(scenarioSequence)}{Environment.NewLine}    Scenario: {drpDomain.Text.ToString()}.TST{txtTSTID.Text}_{FormatScenarioSequence(scenarioSequence)}.{path.First()} : {txtRequirements.Text}";
+            string domainPart = string.IsNullOrWhiteSpace(drpDomain.Text) ? "" : $"{drpDomain.Text}.";
+            string scenarioTitle = $"    @manual @{txtTSTID.Text} @TST{txtTSTID.Text}_{FormatScenarioSequence(scenarioSequence)}{Environment.NewLine}    Scenario: {domainPart}TST{txtTSTID.Text}_{FormatScenarioSequence(scenarioSequence)}.{path.First()} : {txtRequirements.Text}";
 
             // Map each step based on the starting text
             string lastGeneratedStep = "";
@@ -1083,8 +1206,8 @@ namespace MindMapToGherkin
 
         private void btnLocate_Click(object sender, EventArgs e)
         {
-            string idToFind = testcaseprefix.Replace("-", "") + txtTSTID.Text + "_";
-            string pathToFind = testcaseroot;
+            string idToFind = settings.TestPrefix.Replace("-", "") + txtTSTID.Text + "_";
+            string pathToFind = settings.FeatureFindRoot;
 
             try
             {
@@ -1105,7 +1228,7 @@ namespace MindMapToGherkin
                 }
                 else
                 {
-                    MessageBox.Show("There is no feature file for " + testcaseprefix + txtTSTID.Text + " in your test case repository!\nPlease add the file first and then try again!", "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("There is no feature file for " + settings.TestPrefix + txtTSTID.Text + " in your test case repository path "+ settings.FeatureFindRoot+".\nPlease add the file first and then try again!", "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
@@ -1116,8 +1239,8 @@ namespace MindMapToGherkin
 
         private void btnWriteToFeatureFile_Click(object sender, EventArgs e)
         {
-            string idToFind = testcaseprefix.Replace("-", "") + txtTSTID.Text + "_";
-            string pathToFind = testcaseroot;
+            string idToFind = settings.TestPrefix.Replace("-", "") + txtTSTID.Text + "_";
+            string pathToFind = settings.FeatureFindRoot;
 
             try
             {
@@ -1126,8 +1249,8 @@ namespace MindMapToGherkin
 
                 if (matchingFile == null)
                 {
-                    MessageBox.Show("There is no feature file for " + testcaseprefix + txtTSTID.Text +
-                                    " in your test case repository!\nPlease add the file first and then try again!",
+                    MessageBox.Show("There is no feature file for " + settings.TestPrefix + txtTSTID.Text +
+                                    " in your test case repository path "+ settings.FeatureFindRoot+"!\nPlease add the file first and then try again!",
                                     "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -1136,7 +1259,7 @@ namespace MindMapToGherkin
                 string existingContent = File.ReadAllText(matchingFile);
                 if (!string.IsNullOrWhiteSpace(existingContent))
                 {
-                    var result = MessageBox.Show("The feature file " + testcaseprefix + txtTSTID.Text + " already contains content.\nDo you want to overwrite the file with the new content?",
+                    var result = MessageBox.Show("The feature file " + settings.TestPrefix + txtTSTID.Text + " already contains content.\nDo you want to overwrite the file with the new content?",
                                                  "Confirm Overwrite", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
                     if (result != DialogResult.Yes)
@@ -1162,5 +1285,211 @@ namespace MindMapToGherkin
             }
         }
 
+        private void btnLoadMindMap_Click(object sender, EventArgs e)
+        {
+            string input = Microsoft.VisualBasic.Interaction.InputBox("Please enter the ID of the mind map that you want to load.\n(e.g., "+settings.MindmapPrefix+"1234):", "Load Mind Map", settings.MindmapPrefix);
+
+            if (string.IsNullOrWhiteSpace(input))
+                return;
+
+            string pattern = @"^DEV-(\d{4,})$";
+            Match match = Regex.Match(input.Trim(), pattern);
+
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out int devNumber) || devNumber <= 0)
+            {
+                MessageBox.Show("Please enter a valid mind map ID in the format "+settings.MindmapPrefix+"-1234.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string devIdNoDash = input.Replace("-", ""); // e.g., DEV1234
+            string searchPattern = devIdNoDash + "_*.mm";
+
+            try
+            {
+                var fileToDrop = Directory.EnumerateFiles(settings.MindmapFindRoot, "*.mm", SearchOption.AllDirectories)
+                                          .FirstOrDefault(file => Path.GetFileName(file).StartsWith(devIdNoDash + "_", StringComparison.OrdinalIgnoreCase));
+
+                if (fileToDrop == null)
+                {
+                    MessageBox.Show("No matching .mm mind map file found for " + input + "!", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Simulate drag-and-drop onto txtGherkin (specifically lblDrop control)
+                string[] files = new string[] { fileToDrop };
+                DataObject data = new DataObject(DataFormats.FileDrop, files);
+
+                DragEventArgs args = new DragEventArgs(data, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.Copy);
+                lblDrop_DragDrop(txtGherkin, args); // Trigger your existing handler
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while locating or loading the mind map file:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public static string GetCentralNodeText(string filePath)
+        {
+            var doc = XDocument.Load(filePath);
+            var rootNode = doc.Descendants("node").FirstOrDefault();
+            var rawText = rootNode?.Attribute("TEXT")?.Value ?? string.Empty;
+
+            // Remove text within square brackets including brackets and trim
+            string cleanedText = Regex.Replace(rawText, @"\[[^\]]*\]", "").Trim();
+            return cleanedText;
+        }
+
+        public string GetReqIdsUnderRequirements(string filePath)
+        {
+            var doc = XDocument.Load(filePath);
+
+            // Find the "Requirements" or "Requirement" node (case-insensitive)
+            var requirementsNode = doc.Descendants("node")
+                .FirstOrDefault(n =>
+                    string.Equals((string)n.Attribute("TEXT"), "Requirements", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals((string)n.Attribute("TEXT"), "Requirement", StringComparison.OrdinalIgnoreCase));
+
+            if (requirementsNode == null)
+                return string.Empty;
+
+            // Collect all descendant nodes (recursive) under the Requirements node
+            var descendantTexts = requirementsNode
+                .Descendants("node")
+                .Select(n => (string)n.Attribute("TEXT"))
+                .Where(text => !string.IsNullOrEmpty(text));
+
+            // Extract all matches like [REQ-12345]
+            string reqPrefix = settings.ReqPrefix.ToString(); // e.g., "REQ-"
+            var reqIdPattern = new Regex(@"\[" + Regex.Escape(reqPrefix) + @"\d+\]");
+
+            var reqIds = new HashSet<string>();
+
+            foreach (var text in descendantTexts)
+            {
+                foreach (Match match in reqIdPattern.Matches(text))
+                {
+                    string id = match.Value.Trim('[', ']');
+                    reqIds.Add(id);
+                }
+            }
+
+            return string.Join(", ", reqIds.OrderBy(id => id));
+        }
+
+        private void btnReload_Click(object sender, EventArgs e)
+        {
+            if (lastLoadedFilePath == null || lastLoadedFilePath.Length == 0) return;
+
+            string[] files = new string[] { lastLoadedFilePath };
+            DataObject data = new DataObject(DataFormats.FileDrop, files);
+
+            DragEventArgs args = new DragEventArgs(data, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.Copy);
+            lblDrop_DragDrop(txtGherkin, args); // Trigger your existing handler
+        }
+
+        private void btnOpenMindmap_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(lastLoadedFilePath))
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                    {
+                        FileName = lastLoadedFilePath,
+                        UseShellExecute = true // Opens with default associated program
+                    });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to open the file.\n\nDetails: {ex.Message}",
+                        "Error Opening File", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("No mind map file has been loaded yet.",
+                    "Open Mind Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        public static string ValidateGherkinFeatureFile(string[] lines)
+        {
+            var issues = new List<string>();
+
+            bool featureSeen = false;
+            string currentScenarioType = null;
+            bool examplesSeen = false;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                int lineNumber = i + 1;
+
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                    continue;
+
+                if (line.StartsWith("Feature", StringComparison.OrdinalIgnoreCase))
+                {
+                    featureSeen = true;
+                    currentScenarioType = null;
+                    examplesSeen = false;
+                }
+                else if (line.StartsWith("Scenario Outline", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!featureSeen)
+                        issues.Add($"Line {lineNumber}: 'Scenario Outline' found before 'Feature'");
+
+                    currentScenarioType = "Scenario Outline";
+                    examplesSeen = false;
+                }
+                else if (line.StartsWith("Scenario", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!featureSeen)
+                        issues.Add($"Line {lineNumber}: 'Scenario' found before 'Feature'");
+
+                    currentScenarioType = "Scenario";
+                    examplesSeen = false;
+                }
+                else if (line.StartsWith("Examples", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (currentScenarioType == "Scenario")
+                        issues.Add($"Line {lineNumber}: 'Examples' found for 'Scenario', should be 'Scenario Outline'?");
+
+                    if (currentScenarioType == null)
+                        issues.Add($"Line {lineNumber}: 'Examples' found outside of a scenario");
+
+                    examplesSeen = true;
+                }
+                else if (line.StartsWith("|")) // table line
+                {
+                    if (currentScenarioType == "Scenario" && !examplesSeen)
+                    {
+                        issues.Add($"Line {lineNumber}: Table found under 'Scenario' without 'Examples'");
+                    }
+                }
+            }
+
+            // Post-scan: check for Scenario Outline without Examples
+            if (currentScenarioType == "Scenario Outline" && !examplesSeen)
+            {
+                issues.Add($"End of file: 'Scenario Outline' declared without any 'Examples'");
+            }
+
+            if (!featureSeen)
+            {
+                issues.Insert(0, "Line 1: No 'Feature' keyword found in file");
+            }
+
+            return issues.Count > 0 ? string.Join(Environment.NewLine, issues) : "No issues found.";
+        }
+
+        private void bttValidate_Click(object sender, EventArgs e)
+        {
+            string[] lines = txtGherkin.Lines;
+            string validationResult = ValidateGherkinFeatureFile(lines);
+            MessageBox.Show(validationResult, "Gherkin Validation Results");
+
+        }
     }
 }

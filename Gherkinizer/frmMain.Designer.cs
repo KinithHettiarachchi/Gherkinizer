@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             txtGherkin = new RichTextBox();
             label1 = new Label();
@@ -50,6 +51,14 @@
             btnCopy = new Button();
             btnLocate = new Button();
             btnWriteToFeatureFile = new Button();
+            btnLoadMindMap = new Button();
+            statusStrip1 = new StatusStrip();
+            lblFilePath = new ToolStripStatusLabel();
+            btnReload = new Button();
+            btnOpenMindmap = new Button();
+            bttValidate = new Button();
+            toolTip1 = new ToolTip(components);
+            statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // txtGherkin
@@ -74,11 +83,11 @@
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 14.25F);
             label1.ForeColor = Color.White;
-            label1.Location = new Point(735, 130);
+            label1.Location = new Point(801, 136);
             label1.Name = "label1";
-            label1.Size = new Size(133, 25);
+            label1.Size = new Size(157, 25);
             label1.TabIndex = 2;
-            label1.Text = "Scenario Level";
+            label1.Text = "7️⃣ Scenario Level";
             // 
             // txtLevel
             // 
@@ -86,7 +95,7 @@
             txtLevel.BorderStyle = BorderStyle.FixedSingle;
             txtLevel.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtLevel.ForeColor = Color.Lime;
-            txtLevel.Location = new Point(883, 122);
+            txtLevel.Location = new Point(964, 128);
             txtLevel.Name = "txtLevel";
             txtLevel.Size = new Size(52, 33);
             txtLevel.TabIndex = 7;
@@ -101,7 +110,7 @@
             txtParent.BorderStyle = BorderStyle.FixedSingle;
             txtParent.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtParent.ForeColor = Color.Lime;
-            txtParent.Location = new Point(242, 128);
+            txtParent.Location = new Point(269, 128);
             txtParent.Name = "txtParent";
             txtParent.Size = new Size(164, 33);
             txtParent.TabIndex = 5;
@@ -114,9 +123,9 @@
             label2.ForeColor = Color.White;
             label2.Location = new Point(12, 136);
             label2.Name = "label2";
-            label2.Size = new Size(184, 25);
+            label2.Size = new Size(208, 25);
             label2.TabIndex = 4;
-            label2.Text = "Parent Node of Tests";
+            label2.Text = "5️⃣ Parent Node of Tests";
             // 
             // label3
             // 
@@ -125,9 +134,9 @@
             label3.ForeColor = Color.White;
             label3.Location = new Point(12, 77);
             label3.Name = "label3";
-            label3.Size = new Size(78, 25);
+            label3.Size = new Size(102, 25);
             label3.TabIndex = 8;
-            label3.Text = "Domain";
+            label3.Text = "3️⃣ Domain";
             // 
             // drpDomain
             // 
@@ -138,10 +147,10 @@
             drpDomain.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             drpDomain.ForeColor = Color.Lime;
             drpDomain.FormattingEnabled = true;
-            drpDomain.Items.AddRange(new object[] { "EX", "LG", "OR", "ST", "XL", "IN", "WB" });
-            drpDomain.Location = new Point(242, 69);
+            drpDomain.Items.AddRange(new object[] { " " });
+            drpDomain.Location = new Point(269, 69);
             drpDomain.Name = "drpDomain";
-            drpDomain.Size = new Size(127, 33);
+            drpDomain.Size = new Size(164, 33);
             drpDomain.TabIndex = 3;
             // 
             // txtTSTID
@@ -150,9 +159,9 @@
             txtTSTID.BorderStyle = BorderStyle.FixedSingle;
             txtTSTID.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtTSTID.ForeColor = Color.Lime;
-            txtTSTID.Location = new Point(297, 17);
+            txtTSTID.Location = new Point(324, 17);
             txtTSTID.Name = "txtTSTID";
-            txtTSTID.Size = new Size(72, 33);
+            txtTSTID.Size = new Size(109, 33);
             txtTSTID.TabIndex = 1;
             txtTSTID.TextChanged += txtTSTID_TextChanged;
             txtTSTID.KeyPress += TxtTSTID_KeyPress;
@@ -164,9 +173,9 @@
             label4.ForeColor = Color.White;
             label4.Location = new Point(12, 21);
             label4.Name = "label4";
-            label4.Size = new Size(216, 25);
+            label4.Size = new Size(240, 25);
             label4.TabIndex = 10;
-            label4.Text = "Testable Functionality ID";
+            label4.Text = "1️⃣ Testable Functionality ID";
             // 
             // txtSequence
             // 
@@ -174,7 +183,7 @@
             txtSequence.BorderStyle = BorderStyle.FixedSingle;
             txtSequence.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtSequence.ForeColor = Color.Lime;
-            txtSequence.Location = new Point(612, 122);
+            txtSequence.Location = new Point(679, 128);
             txtSequence.Name = "txtSequence";
             txtSequence.Size = new Size(56, 33);
             txtSequence.TabIndex = 6;
@@ -187,11 +196,11 @@
             label5.AutoSize = true;
             label5.Font = new Font("Segoe UI", 14.25F);
             label5.ForeColor = Color.White;
-            label5.Location = new Point(466, 130);
+            label5.Location = new Point(501, 136);
             label5.Name = "label5";
-            label5.Size = new Size(137, 25);
+            label5.Size = new Size(161, 25);
             label5.TabIndex = 12;
-            label5.Text = "Sequence Start";
+            label5.Text = "6️⃣ Sequence Start";
             // 
             // txtRequirements
             // 
@@ -199,9 +208,9 @@
             txtRequirements.BorderStyle = BorderStyle.FixedSingle;
             txtRequirements.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtRequirements.ForeColor = Color.Lime;
-            txtRequirements.Location = new Point(612, 69);
+            txtRequirements.Location = new Point(679, 77);
             txtRequirements.Name = "txtRequirements";
-            txtRequirements.Size = new Size(998, 33);
+            txtRequirements.Size = new Size(994, 33);
             txtRequirements.TabIndex = 4;
             txtRequirements.Text = "REQ-";
             txtRequirements.KeyPress += TxtRequirements_KeyPress;
@@ -211,22 +220,23 @@
             label6.AutoSize = true;
             label6.Font = new Font("Segoe UI", 14.25F);
             label6.ForeColor = Color.White;
-            label6.Location = new Point(466, 77);
+            label6.Location = new Point(501, 77);
             label6.Name = "label6";
-            label6.Size = new Size(127, 25);
+            label6.Size = new Size(151, 25);
             label6.TabIndex = 14;
-            label6.Text = "Requirements";
+            label6.Text = "4️⃣ Requirements";
             // 
             // BtnHelp
             // 
             BtnHelp.FlatStyle = FlatStyle.System;
             BtnHelp.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             BtnHelp.ForeColor = Color.LightGray;
-            BtnHelp.Location = new Point(1635, 9);
+            BtnHelp.Location = new Point(1633, 127);
             BtnHelp.Name = "BtnHelp";
             BtnHelp.Size = new Size(41, 40);
             BtnHelp.TabIndex = 16;
             BtnHelp.Text = "❓";
+            toolTip1.SetToolTip(BtnHelp, "Help");
             BtnHelp.UseVisualStyleBackColor = true;
             BtnHelp.Click += BtnHelp_Click;
             // 
@@ -236,9 +246,9 @@
             txtFeatureTitle.BorderStyle = BorderStyle.FixedSingle;
             txtFeatureTitle.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             txtFeatureTitle.ForeColor = Color.Lime;
-            txtFeatureTitle.Location = new Point(612, 16);
+            txtFeatureTitle.Location = new Point(679, 16);
             txtFeatureTitle.Name = "txtFeatureTitle";
-            txtFeatureTitle.Size = new Size(998, 33);
+            txtFeatureTitle.Size = new Size(994, 33);
             txtFeatureTitle.TabIndex = 2;
             // 
             // label7
@@ -246,18 +256,18 @@
             label7.AutoSize = true;
             label7.Font = new Font("Segoe UI", 14.25F);
             label7.ForeColor = Color.White;
-            label7.Location = new Point(466, 21);
+            label7.Location = new Point(501, 21);
             label7.Name = "label7";
-            label7.Size = new Size(116, 25);
+            label7.Size = new Size(140, 25);
             label7.TabIndex = 17;
-            label7.Text = "Feature Title";
+            label7.Text = "2️⃣ Feature Title";
             // 
             // lblTestCasePrefix
             // 
             lblTestCasePrefix.AutoSize = true;
             lblTestCasePrefix.Font = new Font("Segoe UI", 14.25F, FontStyle.Bold);
             lblTestCasePrefix.ForeColor = Color.Lime;
-            lblTestCasePrefix.Location = new Point(242, 21);
+            lblTestCasePrefix.Location = new Point(269, 21);
             lblTestCasePrefix.Name = "lblTestCasePrefix";
             lblTestCasePrefix.Size = new Size(53, 25);
             lblTestCasePrefix.TabIndex = 18;
@@ -270,11 +280,11 @@
             chkClearOnDrop.CheckState = CheckState.Checked;
             chkClearOnDrop.Font = new Font("Segoe UI", 14.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             chkClearOnDrop.ForeColor = Color.White;
-            chkClearOnDrop.Location = new Point(1525, 145);
+            chkClearOnDrop.Location = new Point(1081, 132);
             chkClearOnDrop.Name = "chkClearOnDrop";
-            chkClearOnDrop.Size = new Size(149, 29);
+            chkClearOnDrop.Size = new Size(157, 29);
             chkClearOnDrop.TabIndex = 19;
-            chkClearOnDrop.Text = "Clear on Drop";
+            chkClearOnDrop.Text = "Clear Text Area";
             chkClearOnDrop.UseVisualStyleBackColor = true;
             // 
             // btnCopy
@@ -282,11 +292,11 @@
             btnCopy.FlatStyle = FlatStyle.System;
             btnCopy.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnCopy.ForeColor = Color.LightGray;
-            btnCopy.Location = new Point(12, 929);
+            btnCopy.Location = new Point(934, 929);
             btnCopy.Name = "btnCopy";
-            btnCopy.Size = new Size(220, 40);
+            btnCopy.Size = new Size(240, 40);
             btnCopy.TabIndex = 20;
-            btnCopy.Text = "Copy Content";
+            btnCopy.Text = "📋 Copy Content";
             btnCopy.UseVisualStyleBackColor = true;
             btnCopy.Click += btnCopy_Click;
             // 
@@ -295,11 +305,11 @@
             btnLocate.FlatStyle = FlatStyle.System;
             btnLocate.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnLocate.ForeColor = Color.LightGray;
-            btnLocate.Location = new Point(258, 929);
+            btnLocate.Location = new Point(1184, 929);
             btnLocate.Name = "btnLocate";
-            btnLocate.Size = new Size(220, 40);
+            btnLocate.Size = new Size(240, 40);
             btnLocate.TabIndex = 21;
-            btnLocate.Text = "Open Feature File";
+            btnLocate.Text = "📂 Open Feature File";
             btnLocate.UseVisualStyleBackColor = true;
             btnLocate.Click += btnLocate_Click;
             // 
@@ -308,20 +318,97 @@
             btnWriteToFeatureFile.FlatStyle = FlatStyle.System;
             btnWriteToFeatureFile.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnWriteToFeatureFile.ForeColor = Color.LightGray;
-            btnWriteToFeatureFile.Location = new Point(505, 929);
+            btnWriteToFeatureFile.Location = new Point(1433, 929);
             btnWriteToFeatureFile.Name = "btnWriteToFeatureFile";
-            btnWriteToFeatureFile.Size = new Size(220, 40);
+            btnWriteToFeatureFile.Size = new Size(240, 40);
             btnWriteToFeatureFile.TabIndex = 22;
-            btnWriteToFeatureFile.Text = "Write to Feature File";
+            btnWriteToFeatureFile.Text = "✍️ Write to Feature File";
             btnWriteToFeatureFile.UseVisualStyleBackColor = true;
             btnWriteToFeatureFile.Click += btnWriteToFeatureFile_Click;
+            // 
+            // btnLoadMindMap
+            // 
+            btnLoadMindMap.FlatStyle = FlatStyle.System;
+            btnLoadMindMap.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnLoadMindMap.ForeColor = Color.LightGray;
+            btnLoadMindMap.Location = new Point(12, 929);
+            btnLoadMindMap.Name = "btnLoadMindMap";
+            btnLoadMindMap.Size = new Size(240, 40);
+            btnLoadMindMap.TabIndex = 23;
+            btnLoadMindMap.Text = "🔄 Load Mind Map...";
+            btnLoadMindMap.UseVisualStyleBackColor = true;
+            btnLoadMindMap.Click += btnLoadMindMap_Click;
+            // 
+            // statusStrip1
+            // 
+            statusStrip1.BackColor = Color.Transparent;
+            statusStrip1.Items.AddRange(new ToolStripItem[] { lblFilePath });
+            statusStrip1.Location = new Point(0, 979);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.RenderMode = ToolStripRenderMode.Professional;
+            statusStrip1.Size = new Size(1686, 22);
+            statusStrip1.TabIndex = 24;
+            statusStrip1.Text = "statusStrip1";
+            // 
+            // lblFilePath
+            // 
+            lblFilePath.ForeColor = Color.Silver;
+            lblFilePath.Name = "lblFilePath";
+            lblFilePath.Size = new Size(84, 17);
+            lblFilePath.Text = "No file loaded!";
+            // 
+            // btnReload
+            // 
+            btnReload.FlatStyle = FlatStyle.System;
+            btnReload.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnReload.ForeColor = Color.LightGray;
+            btnReload.Location = new Point(1462, 127);
+            btnReload.Name = "btnReload";
+            btnReload.Size = new Size(118, 40);
+            btnReload.TabIndex = 25;
+            btnReload.Text = "🔄 Reload";
+            toolTip1.SetToolTip(btnReload, "Reload Mind Map File");
+            btnReload.UseVisualStyleBackColor = true;
+            btnReload.Click += btnReload_Click;
+            // 
+            // btnOpenMindmap
+            // 
+            btnOpenMindmap.FlatStyle = FlatStyle.System;
+            btnOpenMindmap.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnOpenMindmap.ForeColor = Color.LightGray;
+            btnOpenMindmap.Location = new Point(422, 929);
+            btnOpenMindmap.Name = "btnOpenMindmap";
+            btnOpenMindmap.Size = new Size(240, 40);
+            btnOpenMindmap.TabIndex = 26;
+            btnOpenMindmap.Text = "↗ Open in Freeplane";
+            btnOpenMindmap.UseVisualStyleBackColor = true;
+            btnOpenMindmap.Click += btnOpenMindmap_Click;
+            // 
+            // bttValidate
+            // 
+            bttValidate.FlatStyle = FlatStyle.System;
+            bttValidate.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            bttValidate.ForeColor = Color.LightGray;
+            bttValidate.Location = new Point(1586, 127);
+            bttValidate.Name = "bttValidate";
+            bttValidate.Size = new Size(41, 40);
+            bttValidate.TabIndex = 27;
+            bttValidate.Text = "📝";
+            toolTip1.SetToolTip(bttValidate, "Validate Syntax");
+            bttValidate.UseVisualStyleBackColor = true;
+            bttValidate.Click += bttValidate_Click;
             // 
             // frmMain
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(1686, 981);
+            ClientSize = new Size(1686, 1001);
+            Controls.Add(bttValidate);
+            Controls.Add(btnOpenMindmap);
+            Controls.Add(btnReload);
+            Controls.Add(statusStrip1);
+            Controls.Add(btnLoadMindMap);
             Controls.Add(btnWriteToFeatureFile);
             Controls.Add(btnLocate);
             Controls.Add(btnCopy);
@@ -352,6 +439,8 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "G H E R K I N I Z E R";
             Load += Form1_Load;
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -378,5 +467,12 @@
         private Button btnCopy;
         private Button btnLocate;
         private Button btnWriteToFeatureFile;
+        private Button btnLoadMindMap;
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel lblFilePath;
+        private Button btnReload;
+        private Button btnOpenMindmap;
+        private Button bttValidate;
+        private ToolTip toolTip1;
     }
 }
