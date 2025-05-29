@@ -28,13 +28,15 @@ namespace MindMapToGherkin
             txtGherkin.AllowDrop = true;
             txtGherkin.DragEnter += lblDrop_DragEnter;
             txtGherkin.DragDrop += lblDrop_DragDrop;
-            
+
 
             var configPath = Path.Combine(Environment.CurrentDirectory, "settings.ini");
             settings = AppSettings.Load(configPath);
 
             lblTestCasePrefix.Text = settings.TestPrefix;
             lblTestCasePrefix.Text = settings.TestPrefix;
+            lblMindMapMainEpicPrefix.Text = settings.MindmapPrefix;
+            lblMindMapTaskPrefix.Text = settings.MindmapPrefix;
 
             foreach (var domain in settings.DomainList)
             {
@@ -48,6 +50,9 @@ namespace MindMapToGherkin
             txtSequence.Text = settings.SequenceStart.ToString();
             txtLevel.Text = settings.ScenarioLevel.ToString();
             chkClearOnDrop.Checked = settings.ClearTextArea;
+
+
+            LoadFolderHierarchy(settings.MindmapFindRoot);
 
         }
 
@@ -81,7 +86,7 @@ namespace MindMapToGherkin
 
             // Reset all formatting
             txtGherkin.SelectAll();
-            txtGherkin.SelectionColor = Color.White;
+            txtGherkin.SelectionColor = Color.Black;
             txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
             txtGherkin.SelectionBackColor = txtGherkin.BackColor;
 
@@ -91,10 +96,11 @@ namespace MindMapToGherkin
             var formattingRules = new List<(string pattern, Color color, bool bold)>
     {
         (@"\bFeature\b", Color.DeepPink, true),
+        (@"\bScenario|Scenario Ouline:\b", Color.DeepPink, true),
         (@"\b(Given|When|Then|And|But)\b", Color.LimeGreen, true),
         (@"#.*?$", Color.Gray, false),
-        ("\"[^\"]*\"", Color.LightSalmon, false),
-        ("<[^>]+>", Color.Gold, false),
+        ("\"[^\"]*\"", Color.Blue, false),
+        ("<[^>]+>", Color.Purple, false),
         (@"@\w+", Color.DodgerBlue, false),
         ("\"\"\"[\\s\\S]*?\"\"\"", Color.MediumAquamarine, true),
     };
@@ -125,8 +131,8 @@ namespace MindMapToGherkin
                 {
                     // Apply black background to the whole line
                     txtGherkin.Select(match.Index, match.Length);
-                    //txtGherkin.SelectionBackColor = Color.Black;
-                    txtGherkin.SelectionColor = Color.White;
+                    txtGherkin.SelectionBackColor = Color.White;
+                    txtGherkin.SelectionColor = Color.Black;
                     txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
 
                     // Directly highlight the keyword at the start of the line
@@ -158,7 +164,7 @@ namespace MindMapToGherkin
 
             // Restore selection
             txtGherkin.Select(selectionStart, selectionLength);
-            txtGherkin.SelectionColor = Color.White;
+            txtGherkin.SelectionColor = Color.Black;
             txtGherkin.SelectionFont = new System.Drawing.Font(txtGherkin.Font, FontStyle.Regular);
             txtGherkin.SelectionBackColor = txtGherkin.BackColor;
 
@@ -345,7 +351,7 @@ namespace MindMapToGherkin
 
             // Now renumber scenario tags and titles sequentially
             // Extract feature id from featureHeader like "Feature: TST-00000 - ..."
-            string featureId = settings.TestPrefix+"00000";
+            string featureId = settings.TestPrefix + "00000";
             var featureMatch = System.Text.RegularExpressions.Regex.Match(featureHeader, @"Feature:\s*(\S+)");
             if (featureMatch.Success)
             {
@@ -516,7 +522,7 @@ namespace MindMapToGherkin
             string simulated = before + e.KeyChar + after;
 
             // Allow digits, R/E/Q, hyphen, comma, space
-            if (!char.IsDigit(e.KeyChar) && !(settings.ReqPrefix+", ").Contains(e.KeyChar))
+            if (!char.IsDigit(e.KeyChar) && !(settings.ReqPrefix + ", ").Contains(e.KeyChar))
             {
                 e.Handled = true;
                 return;
@@ -528,7 +534,7 @@ namespace MindMapToGherkin
                 e.Handled = true; // Block default comma behavior
 
                 // Insert ", REQ-" at the current position
-                string insertText = ", "+settings.ReqPrefix;
+                string insertText = ", " + settings.ReqPrefix;
                 tb.Text = before + insertText + after;
 
                 // Move cursor after the inserted "REQ-"
@@ -703,187 +709,6 @@ namespace MindMapToGherkin
         private void txtSequence_KeyPress(object sender, KeyPressEventArgs e)
         {
             e.Handled = !char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar);
-        }
-
-        private string ConvertToGherkin(XDocument xmlDoc)
-        {
-            int level = int.Parse(txtLevel.Text);  // Get the level from txtLevel
-            return ConvertXmlToGherkinScenarios(xmlDoc, level);
-        }
-
-        private string ConvertXmlToGherkinScenarios(XDocument xmlDoc, int level)
-        {
-            var scenarios = new StringBuilder();
-
-            // Extract the main topic (center node, feature title)
-            XElement rootTopic = xmlDoc.Descendants(ns + "topic").FirstOrDefault(e => e.Parent.Name.LocalName == "sheet");
-
-            if (rootTopic == null)
-                return "Root topic not found.";
-
-            string featureTitle = rootTopic.Element(ns + "title")?.Value ?? "Untitled Feature";
-
-            // Find the "Functional Tests" topic
-            XElement functionalTestsTopic = rootTopic.Descendants(ns + "topic").FirstOrDefault(e => e.Element(ns + "title")?.Value == "Functional Tests");
-
-            if (functionalTestsTopic == null)
-                return "Functional Tests topic not found.";
-
-            // Generate paths from the Functional Tests node, based on the level provided
-            var paths = GetAllPaths(functionalTestsTopic);
-
-            // Dictionary to track and group scenarios by title
-            var scenarioDictionary = new Dictionary<string, List<List<string>>>();
-
-            // Group paths by scenario title, which is determined by the specified level
-            foreach (var path in paths)
-            {
-                if (path.Count <= level)
-                    continue;  // Skip if the path is not deep enough for the specified level
-
-                string scenarioTitle = path[level];  // The title is determined by the node at the specified level
-                if (!scenarioDictionary.ContainsKey(scenarioTitle))
-                {
-                    scenarioDictionary[scenarioTitle] = new List<List<string>>();
-                }
-
-                // Add the path to the corresponding scenario title group
-                scenarioDictionary[scenarioTitle].Add(path);
-            }
-
-            // Dictionary to handle duplicate scenario titles and append sequence numbers
-            var scenarioCountDictionary = new Dictionary<string, int>();
-
-            foreach (var scenarioGroup in scenarioDictionary)
-            {
-                string baseTitle = scenarioGroup.Key;
-                int scenarioIndex = scenarioCountDictionary.ContainsKey(baseTitle) ? scenarioCountDictionary[baseTitle] : 0;
-
-                // Group paths by common last-level nodes
-                var groupedPaths = new Dictionary<string, List<string>>();
-                foreach (var path in scenarioGroup.Value)
-                {
-                    // Convert the last level nodes (leaf nodes) into Then steps
-                    string pathKey = string.Join(" -> ", path.Skip(level + 1));
-                    if (!groupedPaths.ContainsKey(pathKey))
-                    {
-                        groupedPaths[pathKey] = new List<string>(path.Skip(level + 1));
-                    }
-                }
-
-                foreach (var pathGroup in groupedPaths)
-                {
-                    // Increment the sequence number for duplicate scenario titles
-                    scenarioIndex++;
-                    string scenarioTitle = $"{baseTitle}#{scenarioIndex}";
-
-                    scenarios.AppendLine($"    Scenario: {scenarioTitle}");
-
-                    // Append the steps for the scenario
-                    foreach (var step in pathGroup.Value)
-                    {
-                        if (step.StartsWith("user") && !step.StartsWith("user '"))
-                        {
-                            scenarios.AppendLine($"        When {step}");
-                        }
-                        else if (step.StartsWith("system"))
-                        {
-                            scenarios.AppendLine($"        Then {step}");
-                        }
-                        else
-                        {
-                            scenarios.AppendLine($"        Given {step}");
-                        }
-
-                    }
-
-                    scenarios.AppendLine();
-                }
-
-                // Update the scenario count for future titles
-                scenarioCountDictionary[baseTitle] = scenarioIndex;
-            }
-
-            return $"Feature: {featureTitle}\n\n{scenarios.ToString()}";
-        }
-
-        private List<List<string>> GetAllPaths(XElement startTopic)
-        {
-            var paths = new List<List<string>>();
-            var allPathsAtSameLevel = new Dictionary<string, List<string>>(); // Track all nodes at each level
-
-            void Traverse(XElement topic, List<string> currentPath)
-            {
-                XElement childrenElement = topic.Element(ns + "children");
-                XElement topicsElement = childrenElement?.Element(ns + "topics");
-
-                var title = ExtractScenarioTitle(topic);
-                currentPath.Add(title);
-
-                if (topicsElement == null || !topicsElement.HasElements)
-                {
-                    // If there are no more children, add the path to the list
-                    paths.Add(new List<string>(currentPath));
-
-                    // Track all nodes at this level
-                    var parentKey = string.Join(" -> ", currentPath.Take(currentPath.Count - 1));
-                    if (!allPathsAtSameLevel.ContainsKey(parentKey))
-                    {
-                        allPathsAtSameLevel[parentKey] = new List<string>();
-                    }
-                    allPathsAtSameLevel[parentKey].Add(title);
-                }
-                else
-                {
-                    foreach (XElement child in topicsElement.Elements(ns + "topic"))
-                    {
-                        Traverse(child, currentPath);
-                    }
-                }
-
-                currentPath.RemoveAt(currentPath.Count - 1);  // Backtrack
-            }
-
-            Traverse(startTopic, new List<string>());
-
-            // Grouping paths based on the leaf nodes found at the same level
-            var updatedPaths = new List<List<string>>();
-
-            for (var p = 0; p < paths.Count; p++)
-            {
-                var parentPath = paths[p].Take(paths[p].Count - 1).ToList();
-                var lastNode = paths[p].Last();
-
-                if (allPathsAtSameLevel.ContainsKey(string.Join(" -> ", parentPath)))
-                {
-                    var siblingLeafs = allPathsAtSameLevel[string.Join(" -> ", parentPath)];
-                    if (siblingLeafs.Count > 1 && siblingLeafs.Contains(lastNode))
-                    {
-                        // Add paths including all sibling leaves as steps
-                        foreach (var siblingLeaf in siblingLeafs)
-                        {
-                            if (siblingLeaf != lastNode)
-                            {
-                                var extendedPath = new List<string>(parentPath) { siblingLeaf };
-                                paths[p].Add(siblingLeaf);
-                                paths.RemoveAt(p + 1);
-                                // updatedPaths.Add(extendedPath);
-                            }
-                        }
-                    }
-                }
-
-                updatedPaths.Add(paths[p]);
-            }
-
-            return updatedPaths;
-        }
-
-
-
-        private string ExtractScenarioTitle(XElement topic)
-        {
-            return topic.Element(ns + "title")?.Value ?? "Untitled";
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -1117,11 +942,6 @@ namespace MindMapToGherkin
             return scenarioSequence < 10 ? $"0{scenarioSequence}" : scenarioSequence.ToString();
         }
 
-        private void btnClear_Click(object sender, EventArgs e)
-        {
-            txtGherkin.Text = string.Empty;
-        }
-
         private string FormatResrouceStep(string p)
         {
             // Define the possible prefixes and suffix
@@ -1175,12 +995,6 @@ namespace MindMapToGherkin
             );
         }
 
-
-        private void txtGherkin_TextChanged(object sender, EventArgs e)
-        {
-            //HighlightGherkinSyntax();
-        }
-
         private void txtLevel_TextChanged(object sender, EventArgs e)
         {
 
@@ -1228,7 +1042,7 @@ namespace MindMapToGherkin
                 }
                 else
                 {
-                    MessageBox.Show("There is no feature file for " + settings.TestPrefix + txtTSTID.Text + " in your test case repository path "+ settings.FeatureFindRoot+".\nPlease add the file first and then try again!", "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("There is no feature file for " + settings.TestPrefix + txtTSTID.Text + " in your test case repository path " + settings.FeatureFindRoot + ".\nPlease add the file first and then try again!", "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
@@ -1250,7 +1064,7 @@ namespace MindMapToGherkin
                 if (matchingFile == null)
                 {
                     MessageBox.Show("There is no feature file for " + settings.TestPrefix + txtTSTID.Text +
-                                    " in your test case repository path "+ settings.FeatureFindRoot+"!\nPlease add the file first and then try again!",
+                                    " in your test case repository path " + settings.FeatureFindRoot + "!\nPlease add the file first and then try again!",
                                     "File Not Found!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -1287,7 +1101,7 @@ namespace MindMapToGherkin
 
         private void btnLoadMindMap_Click(object sender, EventArgs e)
         {
-            string input = Microsoft.VisualBasic.Interaction.InputBox("Please enter the ID of the mind map that you want to load.\n(e.g., "+settings.MindmapPrefix+"1234):", "Load Mind Map", settings.MindmapPrefix);
+            string input = Microsoft.VisualBasic.Interaction.InputBox("Please enter the ID of the mind map that you want to load.\n(e.g., " + settings.MindmapPrefix + "1234):", "Load Mind Map", settings.MindmapPrefix);
 
             if (string.IsNullOrWhiteSpace(input))
                 return;
@@ -1297,7 +1111,7 @@ namespace MindMapToGherkin
 
             if (!match.Success || !int.TryParse(match.Groups[1].Value, out int devNumber) || devNumber <= 0)
             {
-                MessageBox.Show("Please enter a valid mind map ID in the format "+settings.MindmapPrefix+"-1234.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter a valid mind map ID in the format " + settings.MindmapPrefix + "-1234.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1489,6 +1303,242 @@ namespace MindMapToGherkin
             string[] lines = txtGherkin.Lines;
             string validationResult = ValidateGherkinFeatureFile(lines);
             MessageBox.Show(validationResult, "Gherkin Validation Results");
+
+        }
+
+
+
+        //=========================================================================================================================
+        // MIND MAP PAGE
+        //=========================================================================================================================
+        private void LoadFolderHierarchy(string rootPath)
+        {
+            tree.Nodes.Clear();
+
+            TreeNode rootNode = new TreeNode(Path.GetFileName(rootPath))
+            {
+                Tag = rootPath
+            };
+            tree.Nodes.Add(rootNode);
+
+            LoadSubDirectories(rootNode, rootPath, 1);
+
+            ExpandToLevel(tree, 3); // Expand only up to 3rd level
+        }
+
+        /// <summary>
+        /// Recursively loads all subdirectories, skipping folders starting with .svn.
+        /// </summary>
+        private void LoadSubDirectories(TreeNode parentNode, string path, int currentLevel)
+        {
+            try
+            {
+                foreach (string directory in Directory.GetDirectories(path))
+                {
+                    string folderName = Path.GetFileName(directory);
+                    if (folderName.StartsWith(".svn", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    TreeNode node = new TreeNode(folderName)
+                    {
+                        Tag = directory
+                    };
+                    parentNode.Nodes.Add(node);
+
+                    // Recurse into subdirectories regardless of depth
+                    LoadSubDirectories(node, directory, currentLevel + 1);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Optionally log or ignore access issues
+            }
+        }
+
+        /// <summary>
+        /// Expands the tree nodes up to a specific level.
+        /// </summary>
+        private void ExpandToLevel(TreeView treeView, int level)
+        {
+            foreach (TreeNode node in treeView.Nodes)
+            {
+                ExpandToLevel(node, level, 1);
+            }
+        }
+
+        private void ExpandToLevel(TreeNode node, int maxLevel, int currentLevel)
+        {
+            if (currentLevel < maxLevel)
+                node.Expand();
+
+            foreach (TreeNode child in node.Nodes)
+            {
+                ExpandToLevel(child, maxLevel, currentLevel + 1);
+            }
+        }
+
+        private void tree_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (e.Node?.Tag is string path)
+            {
+                txtMindMapPath.Text = path;
+            }
+        }
+
+        string mindMapperVersion = "1.12.9.0";
+        private void btnCreateMindMap_Click(object sender, EventArgs e)
+        {
+            string centralNodeText = $"{txtMindMapEpicTitle.Text}&#xa;[{settings.MindmapPrefix + txtMindMapMainEpicID.Text}]";
+            string mindMapID = txtMindMapTaskID.Text;
+            string mindMapFilePath = $"{txtMindMapPath.Text}";
+            string sanitizedTitle = SanitizeAndFormatTitle(txtMindMapTitle.Text);
+            string mindMapFileName = $"{settings.MindmapPrefix.Replace("-", "")}{mindMapID}_{sanitizedTitle}";
+            string mindMapVersion = GetMindMapperVersion();
+            WriteFreeplaneMindMap(centralNodeText, mindMapFilePath, mindMapFileName, mindMapVersion);
+        }
+
+        private string GetMindMapperVersion()
+        {
+            string exePath = @"C:\Program Files\Freeplane\freeplane.exe"; // or the actual path
+            if (File.Exists(exePath))
+            {
+                var versionInfo = FileVersionInfo.GetVersionInfo(exePath);
+                mindMapperVersion = versionInfo.FileVersion; // or ProductVersion
+            }
+
+            return mindMapperVersion;
+        }
+        private string SanitizeAndFormatTitle(string input)
+        {
+            // Remove non-letter characters (keep only A-Z, a-z, and spaces)
+            string cleaned = new string(input.Where(c => char.IsLetter(c) || char.IsWhiteSpace(c)).ToArray());
+
+            // Capitalize each word
+            string[] words = cleaned.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < words.Length; i++)
+            {
+                words[i] = char.ToUpper(words[i][0]) + words[i].Substring(1).ToLower();
+            }
+
+            // Join without spaces
+            return string.Join("", words);
+        }
+
+
+        public void WriteFreeplaneMindMap(string centralNodeText, string mindMapFilePath, string mindMapFileName, string mindMapVersion)
+        {
+            string xmlContent = $@"<map version=""freeplane {mindMapVersion}"">
+    <node TEXT=""{centralNodeText}"" FOLDED=""false"" ID=""ID_0"">
+        <font NAME=""Consolas"" SIZE=""16"" BOLD=""true""/>
+    
+        <node TEXT=""Functional Tests"" POSITION=""bottom_or_right"" ID=""ID_1"">
+            <icon BUILTIN=""emoji-1F489""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        
+            <node TEXT=""Scenario title here"" ID=""ID_2"">
+                <icon BUILTIN=""emoji-1F4C1""/>
+                <font NAME=""Consolas"" SIZE=""10""/>
+            
+                <node TEXT=""precondition here"" ID=""ID_3"">
+                    <icon BUILTIN=""idea""/>
+                    <font NAME=""Consolas"" SIZE=""10""/>
+                
+                    <node TEXT=""user performs action"" ID=""ID_4"">
+                        <icon BUILTIN=""male2""/>
+                        <font NAME=""Consolas"" SIZE=""10""/>
+                    
+                        <node TEXT=""system gives result"" ID=""ID_5"">
+                            <icon BUILTIN=""button_ok""/>
+                            <font NAME=""Consolas"" SIZE=""10""/>
+                        </node>
+                    </node>
+                </node>
+            </node>
+        </node>
+
+        <node TEXT=""Regression Tests"" POSITION=""bottom_or_right"" ID=""ID_6"">
+            <icon BUILTIN=""emoji-1FA79""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""Requirements"" POSITION=""top_or_left"" ID=""ID_7"">
+            <icon BUILTIN=""list""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+            <node TEXT=""[REQ-#####] Requirement Title Here&#xa;[REQ-#####] Requirement Title Here"" ID=""ID_8"">
+                <icon BUILTIN=""list""/>
+                <font NAME=""Consolas"" SIZE=""10""/>
+            </node>
+        </node>
+
+        <node TEXT=""Analysis"" POSITION=""top_or_left"" ID=""ID_9"">
+            <icon BUILTIN=""emoji-1F52C""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""Database"" POSITION=""top_or_left"" ID=""ID_10"">
+            <icon BUILTIN=""emoji-1F9EE""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""GUI"" POSITION=""top_or_left"" ID=""ID_11"">
+            <icon BUILTIN=""emoji-1F5A5""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""Tracers"" POSITION=""top_or_left"" ID=""ID_12"">
+            <icon BUILTIN=""emoji-1FA7A""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""MD Files"" POSITION=""top_or_left"" ID=""ID_13"">
+            <icon BUILTIN=""emoji-1F4DD""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+
+        <node TEXT=""Resources"" POSITION=""top_or_left"" ID=""ID_14"">
+            <icon BUILTIN=""links/sysadmin/shell_script""/>
+            <font NAME=""Consolas"" SIZE=""12"" BOLD=""true""/>
+        </node>
+    </node>
+</map>";
+
+            // Ensure file path ends with directory separator
+            if (!mindMapFilePath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                mindMapFilePath += Path.DirectorySeparatorChar;
+
+            // Full file path
+            string fullPath = Path.Combine(mindMapFilePath, $"{mindMapFileName}.mm");
+
+            // Write XML to file
+            File.WriteAllText(fullPath, xmlContent, Encoding.UTF8);
+
+            if (chkOpenMindMapFolder.Checked)
+            {
+                if (Directory.Exists(mindMapFilePath))
+                {
+                    System.Diagnostics.Process.Start("explorer.exe", mindMapFilePath);
+                }
+                else
+                {
+                    MessageBox.Show("The specified mind map folder does not exist.", "Folder Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+
+            if (chkOpenMindMapFile.Checked)
+            {
+                if (File.Exists(fullPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                    {
+                        FileName = fullPath,
+                        UseShellExecute = true // Required to open with default associated app
+                    });
+                }
+                else
+                {
+                    MessageBox.Show("The mind map file was not found.", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
 
         }
     }
