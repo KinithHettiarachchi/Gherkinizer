@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Linq;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -11,6 +12,7 @@ using System.Drawing;
 using Gherkinizer;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Security;
 
 
 namespace MindMapToGherkin
@@ -28,6 +30,10 @@ namespace MindMapToGherkin
             txtGherkin.AllowDrop = true;
             txtGherkin.DragEnter += lblDrop_DragEnter;
             txtGherkin.DragDrop += lblDrop_DragDrop;
+
+            txtMindMap.AllowDrop = true;
+            txtMindMap.DragEnter += TxtMindMap_DragEnter;
+            txtMindMap.DragDrop += TxtMindMap_DragDrop;
 
 
             var configPath = Path.Combine(Environment.CurrentDirectory, "settings.ini");
@@ -55,6 +61,48 @@ namespace MindMapToGherkin
             LoadFolderHierarchy(settings.MindmapFindRoot);
 
         }
+
+        private void TxtMindMap_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (files.Length > 0 && Path.GetExtension(files[0]).Equals(".feature", StringComparison.OrdinalIgnoreCase))
+                {
+                    e.Effect = DragDropEffects.Copy;
+                }
+                else
+                {
+                    e.Effect = DragDropEffects.None;
+                }
+            }
+        }
+
+        private void TxtMindMap_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (files.Length > 0)
+            {
+                string featureFilePath = files[0];
+                if (Path.GetExtension(featureFilePath).Equals(".feature", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        string outputPath = Path.ChangeExtension(featureFilePath, ".mm");
+
+                        GenerateMindMapFromFeature(featureFilePath, outputPath);
+                       
+                        txtMindMap.Text = File.ReadAllText(outputPath); // Display .mm content
+                        MessageBox.Show("Mind map generated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error generating mind map:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
 
         private void lblDrop_DragEnter(object sender, DragEventArgs e)
         {
@@ -1541,5 +1589,233 @@ namespace MindMapToGherkin
             }
 
         }
+
+        public static void GenerateMindMapFromFeature(string featureFilePath, string outputMmPath)
+        {
+            string[] lines = File.ReadAllLines(featureFilePath);
+            var sb = new StringBuilder();
+            int indentLevel = 0;
+            string indentStr = "  ";
+
+            string Indent(int level) => new string(' ', level * 2);
+
+            sb.AppendLine("<map version=\"1.0.1\">");
+
+            string featureText = "";
+            int baseLevel = 1;
+            int functionalTestsLevel = baseLevel + 1;
+            int scenarioLevel = functionalTestsLevel + 1;
+
+            bool insideScenario = false;
+            int currentStepLevel = scenarioLevel + 1;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+
+                if (line.StartsWith("Feature:"))
+                {
+                    featureText = line.Substring("Feature:".Length).Trim();
+                    sb.AppendLine($"{Indent(baseLevel)}<node TEXT=\"{EscapeXml(featureText)}\">");
+                    sb.AppendLine($"{Indent(baseLevel + 1)}<font NAME=\"Consolas\" SIZE=\"14\" BOLD=\"true\"/>");
+
+                    sb.AppendLine($"{Indent(functionalTestsLevel)}<node TEXT=\"Functional Tests\" POSITION=\"bottom\">");
+                    sb.AppendLine($"{Indent(functionalTestsLevel + 1)}<font NAME=\"Consolas\" SIZE=\"12\" BOLD=\"true\"/>");
+                    sb.AppendLine($"{Indent(functionalTestsLevel + 1)}<icon BUILTIN=\"emoji-1F489\"/>");
+                }
+                else if (line.StartsWith("Scenario") || line.StartsWith("Scenario Outline"))
+                {
+                    if (insideScenario)
+                    {
+                        while (currentStepLevel > scenarioLevel + 1)
+                        {
+                            sb.AppendLine($"{Indent(currentStepLevel)}</node>");
+                            currentStepLevel--;
+                        }
+
+                        sb.AppendLine($"{Indent(scenarioLevel)}</node>");
+                        insideScenario = false;
+                    }
+
+                    string scenarioTitle = Regex.Replace(line, @"^Scenario( Outline)?:", "").Trim();
+                    sb.AppendLine($"{Indent(scenarioLevel)}<node TEXT=\"{EscapeXml(scenarioTitle)}\">");
+                    sb.AppendLine($"{Indent(scenarioLevel + 1)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                    sb.AppendLine($"{Indent(scenarioLevel + 1)}<icon BUILTIN=\"emoji-1F4C1\"/>");
+
+                    insideScenario = true;
+                    currentStepLevel = scenarioLevel + 1;
+                }
+                else if (Regex.IsMatch(line, @"^(Given|When|Then) "))
+                {
+                    string pattern = @"^(Given|When|Then)\s+";
+                    Match match = Regex.Match(line, pattern);
+                    if (match.Success)
+                    {
+                        string keyword = match.Groups[1].Value;
+                        string stepText = Regex.Replace(line, pattern, "").Trim();
+
+                        string actorName = "";
+                        if (keyword == "Given")
+                        {
+                            if (line.ToUpper().StartsWith("GIVEN USER"))
+                                actorName = "the";
+                        }
+                        else if (keyword == "When")
+                            actorName = "user";
+                        else if (keyword == "Then")
+                            actorName = "system";
+
+                        string iconName = keyword == "Given" ? "idea" :
+                                          keyword == "When" ? "male2" :
+                                          keyword == "Then" ? "button_ok" : "";
+
+                        string nodeText = string.IsNullOrWhiteSpace(actorName)
+    ? stepText
+    : $"{actorName} {stepText}";
+
+                        // --- Handle step data tables or doc strings and append to nodeText ---
+                        string extraContent = "";
+                        if (i + 1 < lines.Length && (lines[i + 1].Trim().StartsWith("|") || lines[i + 1].Trim() == "\"\"\""))
+                        {
+                            i++;
+                            if (lines[i].Trim() == "\"\"\"")
+                            {
+                                var docBuilder = new StringBuilder();
+                                i++; // Skip starting """
+                                while (i < lines.Length && lines[i].Trim() != "\"\"\"")
+                                {
+                                    docBuilder.AppendLine(lines[i]);
+                                    i++;
+                                }
+                                extraContent = docBuilder.ToString().Trim();
+                            }
+                            else
+                            {
+                                var tableBuilder = new StringBuilder();
+                                while (i < lines.Length && lines[i].Trim().StartsWith("|"))
+                                {
+                                    tableBuilder.AppendLine(lines[i].Trim());
+                                    i++;
+                                }
+                                i--; // Rewind for main loop
+                                extraContent = tableBuilder.ToString().Trim();
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(extraContent))
+                            {
+                                nodeText += " &#xa;" + EscapeXmlPreservingLineBreaks(extraContent);
+                            }
+                        }
+
+                        sb.AppendLine($"{Indent(++currentStepLevel)}<node TEXT=\"{nodeText}\">");
+                        sb.AppendLine($"{Indent(currentStepLevel + 1)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                        sb.AppendLine($"{Indent(currentStepLevel + 1)}<icon BUILTIN=\"{iconName}\"/>");
+
+                        // --- Handle step data tables or doc strings ---
+                        int dataLevel = currentStepLevel + 1;
+                        if (i + 1 < lines.Length && (lines[i + 1].Trim().StartsWith("|") || lines[i + 1].Trim() == "\"\"\""))
+                        {
+                            i++;
+                            if (lines[i].Trim() == "\"\"\"")
+                            {
+                                var docBuilder = new StringBuilder();
+                                i++; // skip initial """
+                                while (i < lines.Length && lines[i].Trim() != "\"\"\"")
+                                {
+                                    docBuilder.AppendLine(lines[i].Trim());
+                                    i++;
+                                }
+                                string docText = "\"\"\"" + "&#xa;" + EscapeXmlPreservingLineBreaks(docBuilder.ToString().Trim()) + "&#xa;" +"\"\"\"";
+                                sb.AppendLine($"{Indent(dataLevel)}<node TEXT=\"{docText}\">");
+                                sb.AppendLine($"{Indent(dataLevel + 1)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                                sb.AppendLine($"{Indent(dataLevel)}</node>");
+                            }
+                            else
+                            {
+                                var tableBuilder = new StringBuilder();
+                                while (i < lines.Length && lines[i].Trim().StartsWith("|"))
+                                {
+                                    tableBuilder.AppendLine(lines[i].Trim());
+                                    i++;
+                                }
+                                i--; // adjust
+                                string tableText = EscapeXml(tableBuilder.ToString().Trim()).Replace("\n", "&#xa;");
+                                sb.AppendLine($"{Indent(dataLevel)}<node TEXT=\"{tableText}\">");
+                                sb.AppendLine($"{Indent(dataLevel + 1)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                                sb.AppendLine($"{Indent(dataLevel)}</node>");
+                            }
+                        }
+                    }
+                }
+                else if (line.StartsWith("Examples:"))
+                {
+                    while (currentStepLevel > scenarioLevel + 1)
+                    {
+                        sb.AppendLine($"{Indent(currentStepLevel)}</node>");
+                        currentStepLevel--;
+                    }
+
+                    sb.AppendLine($"{Indent(currentStepLevel + 1)}<node TEXT=\"Examples\">");
+                    sb.AppendLine($"{Indent(currentStepLevel + 2)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                    sb.AppendLine($"{Indent(currentStepLevel + 2)}<icon BUILTIN=\"xmag\"/>");
+
+                    var tableBuilder = new StringBuilder();
+                    i++;
+                    while (i < lines.Length && lines[i].Trim().Contains("|"))
+                    {
+                        tableBuilder.AppendLine(lines[i].Trim());
+                        i++;
+                    }
+                    i--;
+
+                    string tableText = EscapeXml(tableBuilder.ToString().Trim()).Replace("\n", "&#xa;");
+                    sb.AppendLine($"{Indent(currentStepLevel + 2)}<node TEXT=\"{tableText}\">");
+                    sb.AppendLine($"{Indent(currentStepLevel + 3)}<font NAME=\"Consolas\" SIZE=\"10\"/>");
+                    sb.AppendLine($"{Indent(currentStepLevel + 2)}</node>");
+                    sb.AppendLine($"{Indent(currentStepLevel + 1)}</node>");
+                }
+                else if (string.IsNullOrWhiteSpace(line))
+                {
+                    while (currentStepLevel > scenarioLevel + 1)
+                    {
+                        sb.AppendLine($"{Indent(currentStepLevel)}</node>");
+                        currentStepLevel--;
+                    }
+                }
+            }
+
+            while (currentStepLevel > scenarioLevel + 1)
+            {
+                sb.AppendLine($"{Indent(currentStepLevel)}</node>");
+                currentStepLevel--;
+            }
+
+            if (insideScenario)
+            {
+                sb.AppendLine($"{Indent(scenarioLevel)}</node>");
+            }
+
+            sb.AppendLine($"{Indent(functionalTestsLevel)}</node>");
+            sb.AppendLine($"{Indent(baseLevel)}</node>");
+            sb.AppendLine("</map>");
+
+            File.WriteAllText(outputMmPath, sb.ToString());
+        }
+
+
+        // Utility
+        static string EscapeXml(string input)
+        {
+            return SecurityElement.Escape(input)?.Replace("\"", "&quot;");
+        }
+
+        private static string EscapeXmlPreservingLineBreaks(string input)
+        {
+            return SecurityElement.Escape(input).Replace("&#xa;", "TEMP_LINEBREAK")
+                                                 .Replace("\r", "")
+                                                 .Replace("\n", "&#xa;")
+                                                 .Replace("TEMP_LINEBREAK", "&#xa;");
+        }
+
     }
 }

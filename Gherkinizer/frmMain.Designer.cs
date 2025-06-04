@@ -76,11 +76,14 @@
             txtMindMapMainEpicID = new TextBox();
             lblMindMapMainEpicPrefix = new Label();
             label8 = new Label();
+            tabPage3 = new TabPage();
+            txtMindMap = new RichTextBox();
             statusStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
             tabPage2.SuspendLayout();
             panel1.SuspendLayout();
+            tabPage3.SuspendLayout();
             SuspendLayout();
             // 
             // txtGherkin
@@ -444,6 +447,7 @@
             // 
             tabControl1.Controls.Add(tabPage1);
             tabControl1.Controls.Add(tabPage2);
+            tabControl1.Controls.Add(tabPage3);
             tabControl1.Location = new Point(0, 2);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
@@ -695,6 +699,33 @@
             label8.TabIndex = 11;
             label8.Text = "1️⃣ Main Epic";
             // 
+            // tabPage3
+            // 
+            tabPage3.Controls.Add(txtMindMap);
+            tabPage3.Location = new Point(4, 24);
+            tabPage3.Name = "tabPage3";
+            tabPage3.Padding = new Padding(3);
+            tabPage3.Size = new Size(1678, 941);
+            tabPage3.TabIndex = 2;
+            tabPage3.Text = "Gherkin to Mindmap";
+            tabPage3.UseVisualStyleBackColor = true;
+            // 
+            // txtMindMap
+            // 
+            txtMindMap.BackColor = Color.White;
+            txtMindMap.BorderStyle = BorderStyle.FixedSingle;
+            txtMindMap.Cursor = Cursors.IBeam;
+            txtMindMap.Font = new Font("Cascadia Code", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            txtMindMap.ForeColor = Color.Black;
+            txtMindMap.Location = new Point(8, 119);
+            txtMindMap.Name = "txtMindMap";
+            txtMindMap.ReadOnly = true;
+            txtMindMap.Size = new Size(1662, 703);
+            txtMindMap.TabIndex = 2;
+            txtMindMap.TabStop = false;
+            txtMindMap.Text = "";
+            txtMindMap.WordWrap = false;
+            // 
             // frmMain
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -720,6 +751,7 @@
             tabPage2.ResumeLayout(false);
             panel1.ResumeLayout(false);
             panel1.PerformLayout();
+            tabPage3.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -771,5 +803,7 @@
         private CheckBox chkOpenMindMapFile;
         private CheckBox chkOpenMindMapFolder;
         private Button btnCreateMindMap;
+        private TabPage tabPage3;
+        private RichTextBox txtMindMap;
     }
 }
